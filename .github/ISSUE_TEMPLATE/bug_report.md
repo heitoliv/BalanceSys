@@ -1,21 +1,25 @@
 ---
-name: Bug
-about: Reportar um problema encontrado no sistema
-title: "[Bug]: "
+name: "🐞 Reportar bug"
+about: "Ajude-nos a corrigir um problema"
+title: "[BUG] Descreva o problema em poucas palavras"
 labels: bug
-assignees:
+assignees: ""
 ---
 
-## Descrição do bug
-Explique claramente o problema.
+## Descrição
+Uma descrição clara e concisa do que está acontecendo.
 
 ## Passos para reproduzir
-1.
-2.
-3.
+1. Vá para '...'
+2. Clique em '...'
+3. Role até '...'
+4. Veja o erro
 
 ## Comportamento esperado
-O que você esperava que acontecesse?
+O que você esperava que acontecesse.
 
 ## Evidências
-Prints, logs, stacktrace, ambiente (SO, versão do app etc.).
+- **Capturas de tela** (se aplicável)
+- **Logs/stack trace** (se aplicável)
+<details>
+<summary>Logs (clique para expandir)</summary>
