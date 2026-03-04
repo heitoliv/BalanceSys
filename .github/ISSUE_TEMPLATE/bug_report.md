@@ -1,9 +1,9 @@
 ---
-name: "Reportar Bug"
-about: "Relatar um problema encontrado no sistema"
-title: "[Bug]"
-labels: ["bug"]
-assignees: []
+name: Bug
+about: Reportar um problema encontrado no sistema
+title: "[Bug]: "
+labels: bug
+assignees:
 ---
 
 ### Descrição do bug
