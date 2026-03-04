@@ -1,21 +1,17 @@
-
 ---
-name: Solicitação de Funcionalidade
-about: Propor uma nova funcionalidade ou melhoria
-title: "[Feature] <resumo da proposta>"
+name: "Solicitação de Funcionalidade"
+description: "Propor uma nova funcionalidade ou melhoria"
+title: "[Feature]"
 labels: ["feature"]
 assignees: []
 ---
 
-## Problema / Oportunidade
-Qual necessidade esta feature resolve?
+### História do Usuário
+Como **(tipo de usuário)**, quero **(funcionalidade)** para **(benefício)**.
 
-## Proposta
-Resumo da solução proposta.
-
-## Critérios de aceite
+### Critérios de Aceite
 - [ ] Critério 1
 - [ ] Critério 2
 
-## Impactos / Dependências
-Liste módulos afetados, riscos ou dependências.
+### Requisitos / Observações
+Informações adicionais relevantes.
