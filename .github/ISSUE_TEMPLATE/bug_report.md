@@ -1,24 +1,47 @@
+# 🐞 Relatório de Bug
+
+## 📌 Título
+[BUG] Descrição breve do problema
+
 ---
-name: "🐞 Bug"
-about: "Reporte um bug rapidamente"
-title: "[BUG] Título curto"
-labels: bug
+
+## 📖 Descrição
+Explique de forma clara e objetiva o que está acontecendo.
+
 ---
 
-**O que aconteceu?**
-Descreva o problema.
+## 🖥 Ambiente
+- **Sistema Operacional:** (ex.: Windows 11, Ubuntu 22.04, Android 14)
+- **Versão do Software:** (ex.: v1.2.3)
+- **Navegador/Versão:** (se aplicável)
+- **Outros detalhes relevantes:** 
 
-**Como reproduzir**
-1. 
-2. 
-3. 
+---
 
-**O que deveria acontecer**
-Descreva o esperado.
+## 🔄 Passos para Reproduzir
+1. Vá para `...`
+2. Clique em `...`
+3. Observe o erro `...`
 
-**Ambiente**
-- Versão: 
-- SO/Browser/Runtime: 
+---
 
-**Evidências**
-(prints/logs)
+## ✅ Comportamento Esperado
+Descreva o que deveria acontecer.
+
+---
+
+## ❌ Comportamento Atual
+Descreva o que realmente acontece.
+
+---
+
+## 📎 Evidências
+- Capturas de tela, vídeos ou logs de erro.
+
+---
+
+## 🚦 Prioridade / Severidade
+- [ ] Baixa
+- [ ] Média
+- [ ] Alta
+- [ ] Crítica
