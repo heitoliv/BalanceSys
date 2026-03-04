@@ -6,16 +6,16 @@ labels: bug
 assignees:
 ---
 
-### Descrição do bug
-Descreva claramente o problema.
+## Descrição do bug
+Explique claramente o problema.
 
-### Passos para reproduzir
-1. Vá para '...'
-2. Clique em '...'
-3. Observe o erro.
+## Passos para reproduzir
+1.
+2.
+3.
 
-### Comportamento esperado
-Explique o que deveria acontecer.
+## Comportamento esperado
+O que você esperava que acontecesse?
 
-### Evidências
-Prints, logs, stacktrace, ambiente etc.
+## Evidências
+Prints, logs, stacktrace, ambiente (SO, versão do app etc.).
