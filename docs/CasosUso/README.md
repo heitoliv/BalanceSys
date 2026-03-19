@@ -6,7 +6,7 @@
 
 
 
-!\[Diagrama de Casos de Uso](./diagrama-casos-de-uso.svg)
+<img src="./diagrama-casos-de-uso.svg" width="100%"/>
 
 
 
@@ -15,4 +15,6 @@
 
 
 Veja o arquivo \[casos\_de\_uso.md](./casos\_de\_uso.md) para a descrição detalhada de cada caso de uso.
+
+
 
