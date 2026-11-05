@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BalanceSys — Registro Financeiro</title>
+<style>
+  :root{
+    --verde-800:#14532d; --verde-700:#15803d; --verde-600:#16a34a;
+    --verde-100:#dcfce7; --verde-50:#f0fdf4;
+    --vermelho:#dc2626; --vermelho-50:#fef2f2;
+    --tinta:#1a2e22; --suave:#5b6b60; --linha:#dfe7e0; --fundo:#f4f7f4;
+    --serif:'Iowan Old Style','Palatino Linotype','Book Antiqua',Palatino,Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--serif);background:var(--fundo);color:var(--tinta);line-height:1.5;padding:0 0 60px}
+  header{background:linear-gradient(135deg,var(--verde-700),var(--verde-800));color:#fff;padding:26px 0}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header h1{font-size:26px;letter-spacing:.3px}
+  header p{color:#bfe9cd;font-size:14px;margin-top:3px}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:-28px auto 26px;max-width:960px;padding:0 20px}
+  .card{background:#fff;border:1px solid var(--linha);border-radius:12px;padding:18px 20px;box-shadow:0 8px 24px -16px rgba(20,83,45,.5)}
+  .card .rot{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--suave)}
+  .card .val{font-size:26px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums}
+  .pos{color:var(--verde-600)} .neg{color:var(--vermelho)}
+  main{max-width:960px;margin:0 auto;padding:0 20px;display:grid;grid-template-columns:1fr 1.25fr;gap:22px;align-items:start}
+  .painel{background:#fff;border:1px solid var(--linha);border-radius:12px;padding:22px}
+  .painel h2{font-size:17px;margin-bottom:16px;color:var(--verde-800)}
+  label{display:block;font-size:13px;color:var(--suave);margin:12px 0 5px}
+  input,select{width:100%;padding:10px 12px;border:1px solid var(--linha);border-radius:8px;font-family:var(--serif);font-size:15px;background:#fff}
+  input:focus,select:focus{outline:none;border-color:var(--verde-600);box-shadow:0 0 0 3px var(--verde-100)}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:var(--fundo);padding:5px;border-radius:9px;margin-bottom:4px}
+  .seg button{padding:9px;border:none;border-radius:7px;font-family:var(--serif);font-size:15px;cursor:pointer;background:transparent;color:var(--suave);font-weight:600}
+  .seg button.on-rec{background:#fff;color:var(--verde-700);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .seg button.on-des{background:#fff;color:var(--vermelho);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .lin{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .btn{width:100%;margin-top:18px;padding:12px;border:none;border-radius:9px;background:var(--verde-700);color:#fff;font-family:var(--serif);font-size:15px;font-weight:600;cursor:pointer}
+  .btn:hover{background:var(--verde-800)}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .aviso{font-size:13px;padding:9px 11px;border-radius:8px;margin-top:12px;display:none}
+  .aviso.erro{background:var(--vermelho-50);color:var(--vermelho);display:block}
+  .aviso.ok{background:var(--verde-50);color:var(--verde-700);display:block}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--suave);font-weight:600;padding:0 8px 10px}
+  td{padding:11px 8px;border-top:1px solid var(--linha);font-size:14px;vertical-align:middle}
+  .tipo-pill{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:middle}
+  .valor{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+  .lixo{border:none;background:none;color:var(--suave);cursor:pointer;font-size:15px;padding:4px 7px;border-radius:6px}
+  .lixo:hover{background:var(--vermelho-50);color:var(--vermelho)}
+  .vazio{text-align:center;color:var(--suave);padding:30px;font-size:14px}
+  .filtros{display:flex;gap:8px;margin-bottom:14px}
+  .filtros select{width:auto;flex:1;padding:7px 10px;font-size:13px}
+  @media(max-width:780px){main{grid-template-columns:1fr}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>BalanceSys</h1>
+    <p>Incremento 1 — registro de receitas e despesas · saldo consolidado</p>
+  </div>
+</header>
+
+<section class="grid">
+  <div class="card"><div class="rot">Receitas</div><div class="val pos" id="c-receitas">R$ 0,00</div></div>
+  <div class="card"><div class="rot">Despesas</div><div class="val neg" id="c-despesas">R$ 0,00</div></div>
+  <div class="card"><div class="rot">Saldo atual</div><div class="val" id="c-saldo">R$ 0,00</div></div>
+</section>
+
+<main>
+  <div class="painel">
+    <h2>Nova transação</h2>
+    <div class="seg">
+      <button type="button" id="bt-receita" class="on-rec">Receita</button>
+      <button type="button" id="bt-despesa">Despesa</button>
+    </div>
+    <div class="lin">
+      <div><label for="f-valor">Valor (R$)</label><input id="f-valor" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+      <div><label for="f-data">Data</label><input id="f-data" type="date" /></div>
+    </div>
+    <label for="f-descricao">Descrição</label>
+    <input id="f-descricao" type="text" placeholder="Ex.: Salário, mercado, aluguel…" />
+    <div class="lin">
+      <div><label for="f-categoria">Categoria</label><select id="f-categoria"></select></div>
+      <div><label for="f-prioridade">Prioridade</label>
+        <select id="f-prioridade">
+          <option value="ESSENCIAL">Essencial</option>
+          <option value="IMPORTANTE" selected>Importante</option>
+          <option value="OPCIONAL">Opcional</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" id="bt-salvar">Registrar transação</button>
+    <div class="aviso" id="aviso"></div>
+  </div>
+
+  <div class="painel">
+    <h2>Histórico</h2>
+    <div class="filtros">
+      <select id="filtro-tipo">
+        <option value="">Receitas e despesas</option>
+        <option value="RECEITA">Só receitas</option>
+        <option value="DESPESA">Só despesas</option>
+      </select>
+      <select id="filtro-categoria"><option value="">Todas as categorias</option></select>
+    </div>
+    <table>
+      <thead><tr><th>Descrição</th><th>Categoria</th><th>Data</th><th>Valor</th><th></th></tr></thead>
+      <tbody id="lista"></tbody>
+    </table>
+    <div class="vazio" id="vazio" style="display:none">Nenhuma transação registrada ainda.</div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

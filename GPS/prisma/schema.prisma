@@ -1,0 +1,65 @@
+// ============================================================================
+// BalanceSys — Esquema de persistência (Camada de Gerência de Dados — cgd)
+// ----------------------------------------------------------------------------
+// Incremento 1: entidades Usuario, Categoria e Transacao.
+//
+// Decisão de projeto: usa-se SQLite (arquivo único, sem servidor) por ser um
+// banco relacional real — ACID, SQL, migrações — que roda sem configuração.
+// A migração futura para PostgreSQL, prevista no Documento de Projeto, exige
+// apenas trocar o `provider` abaixo para "postgresql" e ajustar DATABASE_URL.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Pessoa física que utiliza o sistema (RF01). No Incremento 1 o usuário já
+/// existe como proprietário das transações (RN04), ainda sem fluxo de login.
+model Usuario {
+  id        String      @id @default(uuid())
+  nome      String
+  email     String      @unique
+  criadoEm  DateTime    @default(now())
+
+  transacoes Transacao[]
+
+  @@map("usuarios")
+}
+
+/// Classificação da transação (RN02). Semeada com um conjunto inicial fixo.
+model Categoria {
+  id    String  @id @default(uuid())
+  nome  String  @unique
+  tipo  String  // "RECEITA" | "DESPESA" | "AMBOS" — restringe uso por tipo
+
+  transacoes Transacao[]
+
+  @@map("categorias")
+}
+
+/// Movimentação financeira — entidade central do domínio (ADR-01).
+/// Concentra as regras RN01 (prioridade) e é a origem do cálculo de saldo.
+model Transacao {
+  id          String   @id @default(uuid())
+  tipo        String   // "RECEITA" | "DESPESA"
+  valor       Float
+  descricao   String
+  data        DateTime
+  prioridade  String   // "ESSENCIAL" | "IMPORTANTE" | "OPCIONAL" (RN01)
+  criadoEm    DateTime @default(now())
+
+  usuarioId   String
+  usuario     Usuario   @relation(fields: [usuarioId], references: [id])
+
+  categoriaId String
+  categoria   Categoria @relation(fields: [categoriaId], references: [id])
+
+  @@index([usuarioId])
+  @@index([data])
+  @@map("transacoes")
+}
