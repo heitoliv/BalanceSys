@@ -1,34 +1,56 @@
-// ============================================================================
-// BalanceSys — Esquema de persistência (Camada de Gerência de Dados — cgd)
-// ----------------------------------------------------------------------------
-// Incremento 1: entidades Usuario, Categoria e Transacao.
-//
-// Decisão de projeto: usa-se SQLite (arquivo único, sem servidor) por ser um
-// banco relacional real — ACID, SQL, migrações — que roda sem configuração.
-// A migração futura para PostgreSQL, prevista no Documento de Projeto, exige
-// apenas trocar o `provider` abaixo para "postgresql" e ajustar DATABASE_URL.
-// ============================================================================
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-/// Pessoa física que utiliza o sistema (RF01). No Incremento 1 o usuário já
-/// existe como proprietário das transações (RN04), ainda sem fluxo de login.
 model Usuario {
   id        String      @id @default(uuid())
   nome      String
   email     String      @unique
+  emailBusca String      @unique
+  senhaHash String?
+  emailVerificadoEm DateTime?
   criadoEm  DateTime    @default(now())
 
   transacoes Transacao[]
+  sessoes    Sessao[]
+  tokens     TokenConta[]
+  metas      MetaGasto[]
 
   @@map("usuarios")
+}
+
+model TokenConta {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  tipo      String
+  expiraEm  DateTime
+  usadoEm   DateTime?
+  criadoEm  DateTime  @default(now())
+  usuarioId String
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, tipo, criadoEm])
+  @@index([expiraEm])
+  @@map("tokens_conta")
+}
+
+model Sessao {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  csrfToken String
+  expiraEm  DateTime
+  criadoEm  DateTime @default(now())
+  usuarioId String
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([expiraEm])
+  @@map("sessoes")
 }
 
 /// Classificação da transação (RN02). Semeada com um conjunto inicial fixo.
@@ -38,8 +60,26 @@ model Categoria {
   tipo  String  // "RECEITA" | "DESPESA" | "AMBOS" — restringe uso por tipo
 
   transacoes Transacao[]
+  metas MetaGasto[]
 
   @@map("categorias")
+}
+
+model MetaGasto {
+  id String @id @default(uuid())
+  usuarioId String
+  categoriaId String
+  mes String
+  limite Decimal @db.Decimal(18, 2)
+  moeda String @default("BRL")
+  criadoEm DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  categoria Categoria @relation(fields: [categoriaId], references: [id])
+
+  @@unique([usuarioId, categoriaId, mes])
+  @@index([usuarioId, mes])
+  @@map("metas_gasto")
 }
 
 /// Movimentação financeira — entidade central do domínio (ADR-01).
@@ -47,7 +87,7 @@ model Categoria {
 model Transacao {
   id          String   @id @default(uuid())
   tipo        String   // "RECEITA" | "DESPESA"
-  valor       Float
+  valor       Decimal  @db.Decimal(18, 2)
   descricao   String
   data        DateTime
   prioridade  String   // "ESSENCIAL" | "IMPORTANTE" | "OPCIONAL" (RN01)
@@ -59,7 +99,8 @@ model Transacao {
   categoriaId String
   categoria   Categoria @relation(fields: [categoriaId], references: [id])
 
-  @@index([usuarioId])
-  @@index([data])
+  @@index([usuarioId, data])
+  @@index([usuarioId, tipo, data])
+  @@index([usuarioId, categoriaId, data])
   @@map("transacoes")
 }

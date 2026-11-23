@@ -9,23 +9,24 @@
     --verde-800:#14532d; --verde-700:#15803d; --verde-600:#16a34a;
     --verde-100:#dcfce7; --verde-50:#f0fdf4;
     --vermelho:#dc2626; --vermelho-50:#fef2f2;
-    --tinta:#1a2e22; --suave:#5b6b60; --linha:#dfe7e0; --fundo:#f4f7f4;
-    --serif:'Iowan Old Style','Palatino Linotype','Book Antiqua',Palatino,Georgia,serif;
+    --tinta:#0f172a; --suave:#64748b; --linha:#e5e9f0; --fundo:#f6f8fb;
+    --serif:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;
+    --display:'Space Grotesk',Inter,ui-sans-serif,system-ui,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:var(--serif);background:var(--fundo);color:var(--tinta);line-height:1.5;padding:0 0 60px}
   header{background:linear-gradient(135deg,var(--verde-700),var(--verde-800));color:#fff;padding:26px 0}
   .wrap{max-width:960px;margin:0 auto;padding:0 20px}
-  header h1{font-size:26px;letter-spacing:.3px}
+  header h1{font:700 26px var(--display);letter-spacing:.3px}
   header p{color:#bfe9cd;font-size:14px;margin-top:3px}
-  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:-28px auto 26px;max-width:960px;padding:0 20px}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:0 auto 26px;max-width:960px;padding:0 20px}
   .card{background:#fff;border:1px solid var(--linha);border-radius:12px;padding:18px 20px;box-shadow:0 8px 24px -16px rgba(20,83,45,.5)}
   .card .rot{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--suave)}
-  .card .val{font-size:26px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums}
+  .card .val{font:700 26px var(--display);margin-top:6px;font-variant-numeric:tabular-nums}
   .pos{color:var(--verde-600)} .neg{color:var(--vermelho)}
   main{max-width:960px;margin:0 auto;padding:0 20px;display:grid;grid-template-columns:1fr 1.25fr;gap:22px;align-items:start}
   .painel{background:#fff;border:1px solid var(--linha);border-radius:12px;padding:22px}
-  .painel h2{font-size:17px;margin-bottom:16px;color:var(--verde-800)}
+  .painel h2{font:700 18px var(--display);margin-bottom:16px;color:var(--verde-800)}
   label{display:block;font-size:13px;color:var(--suave);margin:12px 0 5px}
   input,select{width:100%;padding:10px 12px;border:1px solid var(--linha);border-radius:8px;font-family:var(--serif);font-size:15px;background:#fff}
   input:focus,select:focus{outline:none;border-color:var(--verde-600);box-shadow:0 0 0 3px var(--verde-100)}
@@ -45,44 +46,125 @@
   td{padding:11px 8px;border-top:1px solid var(--linha);font-size:14px;vertical-align:middle}
   .tipo-pill{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:middle}
   .valor{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
-  .lixo{border:none;background:none;color:var(--suave);cursor:pointer;font-size:15px;padding:4px 7px;border-radius:6px}
-  .lixo:hover{background:var(--vermelho-50);color:var(--vermelho)}
+  .acoes-linha{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;min-width:150px}
+  .acao-linha{border:1px solid var(--linha);background:#fff;color:var(--verde-800);cursor:pointer;font-size:13px;font-weight:600;padding:7px 10px;border-radius:8px;white-space:nowrap;min-height:36px}
+  .acao-linha:hover{background:var(--verde-50);border-color:var(--verde-600)}
+  .acao-linha.excluir{color:#b91c1c;border-color:#fecaca}
+  .acao-linha.excluir:hover{background:var(--vermelho-50);border-color:var(--vermelho)}
   .vazio{text-align:center;color:var(--suave);padding:30px;font-size:14px}
-  .filtros{display:flex;gap:8px;margin-bottom:14px}
+  .filtros{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
   .filtros select{width:auto;flex:1;padding:7px 10px;font-size:13px}
-  @media(max-width:780px){main{grid-template-columns:1fr}.grid{grid-template-columns:1fr}}
+  .auth-shell{min-height:100vh;display:grid;grid-template-columns:1fr 1fr}
+  .auth-side{background:radial-gradient(900px 500px at 15% -10%,#1a6b3a,var(--verde-800));color:white;padding:56px;display:flex;flex-direction:column;justify-content:space-between}
+  .auth-side h1{font:700 40px/1.1 var(--display);max-width:450px}
+  .auth-side p{max-width:400px;color:#bfe9cd;margin-top:18px}
+  .auth-main{display:grid;place-items:center;padding:36px}
+  .auth{width:100%;max-width:420px;background:#fff;border:1px solid var(--linha);border-radius:14px;padding:28px;box-shadow:0 8px 24px -12px #0f172a22}
+  .auth h2{font:700 24px var(--display);color:var(--verde-800)}
+  .auth button{margin-top:14px}
+  .auth a{color:var(--verde-700);cursor:pointer}
+  .field-error{color:#b91c1c;font-size:12px;min-height:1.1em;display:block}
+  .senha-wrap{display:flex;gap:7px;align-items:center}
+  .senha-wrap input{flex:1;min-width:0}
+  .senha-wrap button{margin:0;padding:8px 10px;border:1px solid var(--linha);border-radius:8px;white-space:nowrap;background:#fff}
+  .senha-regras{font-size:12px;color:var(--suave);padding-left:20px;margin-top:7px}
+  .senha-regras li.ok{color:var(--verde-700)}
+  .auth-links{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:14px;font-size:13px}
+  .oculto{display:none!important}
+  .periodo-bar{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:0 auto 16px;max-width:960px;padding:0 20px}
+  .periodo-bar label{margin:0}
+  .periodo-bar select,.periodo-bar input{width:auto;min-width:150px}
+  .periodo-legenda{font-size:13px;color:var(--suave)}
+  .saldo-atual{max-width:960px;margin:22px auto 16px;padding:0 20px}
+  .saldo-atual .card{border-left:5px solid var(--verde-700)}
+  .saldo-atual .val{font:700 32px var(--display)}
+  .tabela-rolagem{overflow-x:auto}
+  button:focus-visible,a:focus-visible{outline:3px solid var(--verde-600);outline-offset:2px}
+  #area-app{display:none}
+  .topo-acoes{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .topo-acoes button{background:rgba(255,255,255,.12);color:white;border:1px solid rgba(255,255,255,.7);border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:600}
+  .topo-acoes button:hover,.topo-acoes button[aria-current="page"]{background:white;color:var(--verde-800)}
+  .conta-painel{max-width:960px;margin:22px auto;padding:0 20px}
+  .conta-painel .card{max-width:560px}
+  .conta-painel p{margin:10px 0;overflow-wrap:anywhere}
+  .conta-painel button{padding:10px 14px;border:1px solid var(--verde-700);border-radius:8px;color:var(--verde-800);background:white;font-weight:600;cursor:pointer}
+  .metas-painel{max-width:960px;margin:22px auto;padding:0 20px}
+  .metas-painel .painel{margin-bottom:16px}
+  .metas-form{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:12px;align-items:end}
+  .metas-form label{margin-top:0}
+  .metas-form .btn{margin-top:0}
+  .metas-ajuda{font-size:13px;color:var(--suave);margin:8px 0 14px}
+  .metas-filtro{max-width:180px;margin:0 0 14px}
+  .progresso-meta{min-width:210px}
+  .progresso-meta p{font-size:13px;margin:2px 0;color:var(--tinta)}
+  .progresso-meta progress{width:100%;height:12px;accent-color:var(--verde-700)}
+  .progresso-meta.excedida progress{accent-color:var(--vermelho)}
+  .alertas-metas{max-width:960px;margin:20px auto 0;padding:0 20px}
+  .alertas-metas .card{border-left:5px solid #b45309;background:#fffbeb}
+  .alertas-metas h2{font:700 17px var(--display);color:#78350f;margin-bottom:8px}
+  .alertas-metas ul,.alertas-linha{padding-left:20px}
+  .alertas-metas li,.alertas-linha li{margin:5px 0;line-height:1.45}
+  .alertas-linha{font-size:13px;color:#78350f;margin-top:5px}
+  @media(max-width:780px){.metas-form{grid-template-columns:1fr}.acoes-linha{min-width:0}}
+  @media(max-width:780px){main{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.auth-shell{grid-template-columns:1fr}.auth-side{padding:28px;min-height:180px}.auth-side h1{font-size:27px}.auth-main{padding:22px}}
 </style>
 </head>
 <body>
-<header>
+<header id="app-header" style="display:none">
   <div class="wrap">
     <h1>BalanceSys</h1>
-    <p>Incremento 1 — registro de receitas e despesas · saldo consolidado</p>
+    <p>Registro de receitas e despesas · saldo atual e resultado do período</p>
+    <nav class="topo-acoes" id="topo-acoes" aria-label="Navegação principal" style="display:none"><span id="usuario-nome"></span><button id="bt-inicio" type="button" aria-current="page">Visão geral</button><button id="bt-metas" type="button">Metas de gasto</button><button id="bt-conta" type="button">Minha conta</button><button id="bt-sair" type="button" aria-label="Sair da conta">Sair da conta</button></nav>
   </div>
 </header>
 
+<section class="auth-shell" id="area-auth">
+  <div class="auth-side"><div><strong>BalanceSys</strong><h1>Organize suas finanças com clareza.</h1><p>Receitas, despesas e saldo em um só lugar.</p></div><p>Seus dados ficam vinculados à sua conta.</p></div>
+  <div class="auth-main"><div class="auth">
+  <h2 id="auth-titulo">Entrar</h2>
+  <p id="auth-ajuda">Entre com seu e-mail e senha.</p>
+  <form id="auth-form" novalidate>
+    <div id="campo-nome" class="oculto"><label for="auth-nome">Nome</label><input id="auth-nome" autocomplete="name" /><small class="field-error" id="erro-nome"></small></div>
+    <div id="campo-email"><label for="auth-email">E-mail</label><input id="auth-email" type="email" autocomplete="email" /><small class="field-error" id="erro-email"></small></div>
+    <div id="campo-senha"><label for="auth-senha">Senha</label><div class="senha-wrap"><input id="auth-senha" type="password" autocomplete="current-password" aria-describedby="erro-senha regras-senha" /><button type="button" class="mostrar-senha" data-campo="auth-senha" aria-pressed="false" aria-label="Mostrar senha">Mostrar</button></div><small class="field-error" id="erro-senha"></small></div>
+    <ul class="senha-regras oculto" id="regras-senha" aria-live="polite"><li data-regra="tamanho">6 a 20 caracteres</li><li data-regra="maiuscula">Uma letra maiúscula</li><li data-regra="minuscula">Uma letra minúscula</li><li data-regra="numero">Um número</li><li data-regra="especial">Um caractere especial</li></ul>
+    <div id="campo-confirmacao" class="oculto"><label for="auth-confirmar">Confirmar senha</label><div class="senha-wrap"><input id="auth-confirmar" type="password" autocomplete="new-password" aria-describedby="erro-confirmacao" /><button type="button" class="mostrar-senha" data-campo="auth-confirmar" aria-pressed="false" aria-label="Mostrar confirmação da senha">Mostrar</button></div><small class="field-error" id="erro-confirmacao"></small></div>
+    <button class="btn" type="submit" id="auth-enviar">Entrar</button>
+  </form>
+  <p id="auth-mensagem" class="aviso" role="alert"></p>
+  <div class="auth-links"><a id="auth-alternar" href="#">Criar conta</a><a id="auth-recuperar" href="#">Recuperar senha</a><a id="auth-reenviar" href="#">Reenviar verificação</a></div>
+  </div></div>
+</section>
+<div id="area-app">
+<section class="conta-painel oculto" id="area-conta" aria-labelledby="conta-titulo"><div class="card"><h2 id="conta-titulo">Minha conta</h2><p><strong>Nome:</strong> <span id="conta-nome"></span></p><p><strong>E-mail:</strong> <span id="conta-email"></span></p><p><strong>Verificação:</strong> <span id="conta-verificacao"></span></p><p><strong>Conta criada em:</strong> <span id="conta-criada"></span></p><button id="bt-recuperar-conta" type="button">Enviar link para alterar senha</button><p id="conta-mensagem" role="status"></p><p>Histórico de acessos e alterações: ainda não disponível.</p></div></section>
+<section class="metas-painel oculto" id="area-metas" aria-labelledby="metas-titulo"><div class="painel"><h2 id="metas-titulo">Metas de gasto</h2><p class="metas-ajuda">Defina um limite em reais para cada categoria de despesa em um mês. O progresso considera apenas despesas até agora; lançamentos futuros entram quando chegar sua data. A meta não se renova automaticamente.</p><form id="meta-form" class="metas-form"><div><label for="meta-mes">Mês da meta</label><input id="meta-mes" type="month" required /></div><div><label for="meta-categoria">Categoria de despesa</label><select id="meta-categoria" required></select></div><div><label for="meta-limite">Limite (R$)</label><input id="meta-limite" type="text" inputmode="decimal" placeholder="0,00" required /></div><div><button id="meta-salvar" class="btn" type="submit">Criar meta</button><button id="meta-cancelar" class="acao-linha oculto" type="button">Cancelar edição</button></div></form><p id="meta-aviso" role="status" class="aviso"></p></div><div class="painel"><h2>Progresso das metas</h2><div class="metas-filtro"><label for="metas-filtro-mes">Mês exibido</label><input id="metas-filtro-mes" type="month" /></div><div class="tabela-rolagem"><table><thead><tr><th>Mês</th><th>Categoria</th><th>Limite</th><th>Progresso</th><th>Ações</th></tr></thead><tbody id="metas-lista" aria-live="polite"></tbody></table></div><p id="metas-vazio" class="vazio">Nenhuma meta cadastrada neste mês.</p></div></section>
+<div id="area-financas">
+<section class="alertas-metas oculto" id="alertas-metas" aria-labelledby="alertas-metas-titulo"><div class="card"><h2 id="alertas-metas-titulo">Alertas das metas deste mês</h2><ul id="alertas-metas-lista" aria-live="polite"></ul></div></section>
+<section class="saldo-atual"><div class="card"><div class="rot">Saldo atual · até agora</div><div class="val" id="c-saldo">R$ 0,00</div><small>Considera os lançamentos até agora. Valores com data futura aparecem apenas no período correspondente.</small></div></section>
+<div class="periodo-bar"><div><label for="periodicidade">Resultado do período</label><select id="periodicidade"><option value="dia">Dia</option><option value="semana">Semana</option><option value="mes" selected>Mês</option><option value="ano">Ano</option></select></div><div><label for="referencia">Data de referência</label><input id="referencia" type="date" /></div><p class="periodo-legenda" id="periodo-legenda" role="status"></p></div>
 <section class="grid">
-  <div class="card"><div class="rot">Receitas</div><div class="val pos" id="c-receitas">R$ 0,00</div></div>
-  <div class="card"><div class="rot">Despesas</div><div class="val neg" id="c-despesas">R$ 0,00</div></div>
-  <div class="card"><div class="rot">Saldo atual</div><div class="val" id="c-saldo">R$ 0,00</div></div>
+  <div class="card"><div class="rot">Receitas do período</div><div class="val pos" id="c-receitas">R$ 0,00</div></div>
+  <div class="card"><div class="rot">Despesas do período</div><div class="val neg" id="c-despesas">R$ 0,00</div></div>
+  <div class="card"><div class="rot">Resultado do período</div><div class="val" id="c-resultado">R$ 0,00</div></div>
 </section>
 
 <main>
   <div class="painel">
     <h2>Nova transação</h2>
+    <form id="transacao-form">
     <div class="seg">
-      <button type="button" id="bt-receita" class="on-rec">Receita</button>
-      <button type="button" id="bt-despesa">Despesa</button>
+      <button type="button" id="bt-receita" class="on-rec" aria-pressed="true">Receita</button>
+      <button type="button" id="bt-despesa" aria-pressed="false">Despesa</button>
     </div>
     <div class="lin">
-      <div><label for="f-valor">Valor (R$)</label><input id="f-valor" type="number" step="0.01" min="0" placeholder="0,00" /></div>
-      <div><label for="f-data">Data</label><input id="f-data" type="date" /></div>
+      <div><label for="f-valor">Valor (R$)</label><input id="f-valor" type="text" inputmode="decimal" placeholder="0,00" required /></div>
+      <div><label for="f-data">Data</label><input id="f-data" type="date" required /></div>
     </div>
     <label for="f-descricao">Descrição</label>
-    <input id="f-descricao" type="text" placeholder="Ex.: Salário, mercado, aluguel…" />
+    <input id="f-descricao" type="text" placeholder="Ex.: Salário, mercado, aluguel…" required />
     <div class="lin">
       <div><label for="f-categoria">Categoria</label><select id="f-categoria"></select></div>
-      <div><label for="f-prioridade">Prioridade</label>
+      <div id="campo-prioridade" class="oculto"><label for="f-prioridade">Prioridade do gasto</label>
         <select id="f-prioridade">
           <option value="ESSENCIAL">Essencial</option>
           <option value="IMPORTANTE" selected>Importante</option>
@@ -90,27 +172,35 @@
         </select>
       </div>
     </div>
-    <button class="btn" id="bt-salvar">Registrar transação</button>
-    <div class="aviso" id="aviso"></div>
+    <button class="btn" id="bt-salvar" type="submit">Registrar transação</button>
+    <button id="bt-cancelar-edicao" type="button" class="oculto">Cancelar edição</button>
+    <div class="aviso" id="aviso" role="status"></div>
+    <p id="impacto-meta" class="periodo-legenda" role="status"></p>
+    </form>
   </div>
 
   <div class="painel">
     <h2>Histórico</h2>
     <div class="filtros">
-      <select id="filtro-tipo">
+      <select id="filtro-tipo" aria-label="Filtrar histórico por tipo">
         <option value="">Receitas e despesas</option>
         <option value="RECEITA">Só receitas</option>
         <option value="DESPESA">Só despesas</option>
       </select>
-      <select id="filtro-categoria"><option value="">Todas as categorias</option></select>
+      <select id="filtro-categoria" aria-label="Filtrar histórico por categoria"><option value="">Todas as categorias</option></select>
     </div>
+    <p id="filtro-aviso" role="status" class="periodo-legenda"></p>
+    <div class="tabela-rolagem">
     <table>
       <thead><tr><th>Descrição</th><th>Categoria</th><th>Data</th><th>Valor</th><th></th></tr></thead>
       <tbody id="lista"></tbody>
     </table>
-    <div class="vazio" id="vazio" style="display:none">Nenhuma transação registrada ainda.</div>
+    </div>
+    <div class="vazio" id="vazio" style="display:none">Nenhuma transação corresponde aos filtros e ao período selecionados.</div>
   </div>
 </main>
+</div>
+</div>
 
 <script src="app.js"></script>
 </body>

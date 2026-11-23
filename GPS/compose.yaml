@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: balancesys
+      POSTGRES_USER: balancesys
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD em .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U balancesys -d balancesys"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      target: builder
+    environment:
+      DATABASE_URL: postgresql://balancesys:${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD em .env}@db:5432/balancesys?schema=public
+    command: ["npm", "run", "prisma:migrate"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      target: runtime
+    environment:
+      DATABASE_URL: postgresql://balancesys:${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD em .env}@db:5432/balancesys?schema=public
+      PORT: 3000
+      NODE_ENV: development
+      APP_BASE_URL: http://localhost:3000
+    volumes:
+      - mail_data:/app/.local/mail
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  mail_data:

@@ -53,6 +53,13 @@ describe("CDP — Transacao (regras de domínio)", () => {
       Transacao.criar({ ...base, prioridade: "QUALQUER" as PrioridadeGasto })
     ).toThrow(/Prioridade/);
   });
+  it("RN01 exige prioridade apenas para despesa e preserva receita sem classificação", () => {
+    expect(() => Transacao.criar({ ...base, prioridade: undefined })).toThrow(/Prioridade/);
+    const receita = Transacao.criar({ ...base, tipo: TipoTransacao.RECEITA, prioridade: undefined });
+    expect(receita.prioridade).toBeNull();
+    const antiga = Transacao.reconstituir({ ...base, tipo: TipoTransacao.RECEITA, id: "antiga", criadoEm: new Date() });
+    expect(antiga.prioridade).toBeNull();
+  });
 
   it("rejeita tipo inválido", () => {
     expect(() =>

@@ -1,21 +1,21 @@
 {
   "name": "balancesys",
   "version": "0.1.0",
-  "description": "BalanceSys — Sistema de controle financeiro pessoal. Incremento 1: registro de receitas/despesas e saldo consolidado.",
+  "description": "BalanceSys — sistema de controle financeiro pessoal.",
   "type": "commonjs",
   "scripts": {
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev --name init",
-    "db:push": "prisma db push",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:migrate:dev": "prisma migrate dev",
     "seed": "ts-node prisma/seed.ts",
     "dev": "ts-node src/main.ts",
-    "build": "tsc",
-    "start": "node dist/main.js",
+    "build": "tsc && node -e \"require('fs').cpSync('public','dist/public',{recursive:true})\"",
+    "start": "node dist/src/main.js",
     "test": "jest --runInBand"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
-    "express": "4.21.2"
+    "express": "4.22.3"
   },
   "devDependencies": {
     "@types/express": "4.17.21",

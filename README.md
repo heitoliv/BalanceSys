@@ -6,9 +6,11 @@ Sistema web de gestão financeira pessoal desenvolvido para a disciplina de Ger�
 
 | Caminho | Conteúdo |
 |---|---|
-| [GPS/](GPS/) | Aplicação atual em TypeScript, Express e Prisma/SQLite; código, testes e instruções para executar. |
+| [GPS/](GPS/) | Aplicação atual em TypeScript, Express e Prisma/PostgreSQL; código, testes e instruções para executar. |
+| [GPS/MANUAL_TEST.md](GPS/MANUAL_TEST.md) | Passo a passo local no NixOS e roteiro de revisão no navegador. |
 | [docs/](docs/) | Análise, requisitos, casos de uso, diagramas e especificação de projeto. |
 | [docs/product_backlog.md](docs/product_backlog.md) | Visão dos 15 PBIs, prioridades, riscos, dependências e Sprint 1 candidata. |
+| [docs/diagnostico_2026-11-19.md](docs/diagnostico_2026-11-19.md) | Estado de aceite, arquitetura, migração, testes e riscos desta rodada. |
 | [.github/](.github/) | Templates de issues e pull requests. |
 | [balancesys_mvp.html](balancesys_mvp.html) | Protótipo HTML avulso; não é o ponto de entrada da aplicação em GPS/. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Fluxo de contribuição e revisão. |
@@ -17,7 +19,7 @@ O código da aplicação fica em GPS/src/, os testes em GPS/tests/, o modelo e a
 
 ## Estado do produto
 
-O primeiro incremento em GPS/ possui registro de transações, listagem com filtros, cálculo de saldo e exclusão parcial, usando um usuário de exemplo. Cadastro e autenticação, trava RN06, categorização automática, metas, alertas e gráfico ainda exigem implementação ou validação. A existência de código não encerra um PBI: seus critérios de aceite e a integração com usuários autenticados precisam ser demonstrados.
+A branch de trabalho introduz cadastro, login, sessão e PostgreSQL; registro, listagem, saldo e exclusão parcial continuam sujeitos à validação dos critérios de aceite. Trava RN06, categorização automática, metas, alertas e gráfico permanecem pendentes. A existência de código ou teste não encerra um PBI; consulte o diagnóstico e solicite revisão antes de homologar.
 
 ## Backlog e execução
 
@@ -29,7 +31,7 @@ As issues antigas de modelagem e documentação continuam como histórico da fas
 
 ## Rodar a aplicação
 
-Consulte [GPS/README.md](GPS/README.md) para instalação, migrações, execução, API e testes. Execute os comandos a partir de GPS/. A documentação instrui copiar .env.example, mas esse arquivo não aparece na árvore atual do repositório; a equipe deve fornecer a configuração local do banco antes de rodar as migrações.
+Consulte [GPS/README.md](GPS/README.md) para instalação, migrações, importação SQLite, Compose, API e testes. Execute os comandos a partir de GPS/. O exemplo seguro de ambiente está em `GPS/.env.example`.
 
 ## Equipe
 

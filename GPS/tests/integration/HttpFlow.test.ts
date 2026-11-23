@@ -1,0 +1,170 @@
+import request from "supertest";
+import { createHash, randomUUID } from "crypto";
+import { PrismaClient } from "@prisma/client";
+import { criarApp } from "../../src/interface/http/server";
+import { AuthService } from "../../src/application/usuario/AuthService";
+import { AplControlarTransacao } from "../../src/application/transacao/AplControlarTransacao";
+import { PrismaTransacaoRepository } from "../../src/infrastructure/persistence/PrismaTransacaoRepository";
+import { Container } from "../../src/config/container";
+import { GerenciarMetas } from "../../src/application/meta/GerenciarMetas";
+import { PrismaMetaRepository } from "../../src/infrastructure/persistence/PrismaMetaRepository";
+import { intervaloPeriodo } from "../../src/domain/transacao/Periodo";
+
+const url = process.env.TEST_DATABASE_URL;
+const integration = url ? it : it.skip;
+
+integration("HTTP/PostgreSQL: verificação, recuperação, filtro de categorias e saldo de duas contas", async () => {
+  if (!new URL(url!).pathname.slice(1).startsWith("balancesys_test_")) throw new Error("Banco de teste isolado obrigatório");
+  const prisma = new PrismaClient({ datasources: { db: { url } } });
+  const links: string[] = [];
+  const entrega = { enviar: async (_destino: string, _assunto: string, corpo: string) => { links.push(corpo.match(/token=([a-f0-9]{64})/)![1]); } };
+  const auth = new AuthService(prisma, entrega, "http://localhost:3000");
+  const apl = new AplControlarTransacao(new PrismaTransacaoRepository(prisma));
+  const metasApl = new GerenciarMetas(new PrismaMetaRepository(prisma));
+  const app = criarApp({ prisma, auth, aplTransacao: apl, metas: metasApl, inicializar: async () => {} } as Container);
+  const a = request.agent(app), b = request.agent(app);
+  const sufixo = randomUUID();
+  const emails = [`alice-${sufixo}@example.test`, `bob-${sufixo}@example.test`];
+  const categorias = [
+    { nome: `Receita ${sufixo}`, tipo: "RECEITA" },
+    { nome: `Lazer ${sufixo}`, tipo: "DESPESA" },
+    { nome: `Saúde ${sufixo}`, tipo: "DESPESA" },
+    { nome: `Ambos ${sufixo}`, tipo: "AMBOS" },
+  ];
+  const hoje = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const ano = Number(hoje.slice(0, 4));
+  let ids: string[] = [];
+  try {
+    const [renda, lazer, saude, ambos] = await Promise.all(categorias.map(data => prisma.categoria.create({ data })));
+    const criar = (email: string) => ({ nome: "Pessoa", email, senha: "SenhaTeste!123", confirmarSenha: "SenhaTeste!123" });
+    const cadastro = await a.post("/api/auth/cadastro").send(criar(emails[0]));
+    expect(cadastro.status).toBe(201);
+    expect(cadastro.headers["set-cookie"]).toBeUndefined();
+    expect((await a.post("/api/auth/login").send({ email: emails[0], senha: "SenhaTeste!123" })).status).toBe(403);
+    expect((await a.post("/api/auth/verificar").send({ token: links[0] })).status).toBe(200);
+    expect((await a.post("/api/auth/verificar").send({ token: links[0] })).status).toBe(409);
+    const login = await a.post("/api/auth/login").send({ email: emails[0], senha: "SenhaTeste!123" });
+    expect(login.status).toBe(200);
+    const csrf = login.body.csrf;
+    await b.post("/api/auth/cadastro").send(criar(emails[1]));
+    await b.post("/api/auth/verificar").send({ token: links[1] });
+    const loginB = await b.post("/api/auth/login").send({ email: emails[1], senha: "SenhaTeste!123" });
+    expect(loginB.status).toBe(200);
+    const anterior = await a.post("/api/transacoes").set("X-CSRF-Token", csrf).send({ tipo: "RECEITA", valor: 100, descricao: "Anterior", data: `${ano - 1}-01-10`, prioridade: "IMPORTANTE", categoriaId: renda.id });
+    const despesa = await a.post("/api/transacoes").set("X-CSRF-Token", csrf).send({ tipo: "DESPESA", valor: 25.5, descricao: "Lazer", data: hoje, prioridade: "IMPORTANTE", categoriaId: lazer.id });
+    const futuro = await a.post("/api/transacoes").set("X-CSRF-Token", csrf).send({ tipo: "RECEITA", valor: 50, descricao: "Futuro", data: `${ano + 1}-01-10`, prioridade: "IMPORTANTE", categoriaId: renda.id });
+    expect([anterior.status, despesa.status, futuro.status]).toEqual([201, 201, 201]);
+    const resumo = await a.get(`/api/resumo?periodicidade=mes&referencia=${hoje}`);
+    expect(resumo.body.saldoAtual).toBe(74.5);
+    expect(resumo.body.resultadoPeriodo.saldo).toBe(-25.5);
+    const filtro = `/api/categorias/historico?periodicidade=mes&referencia=${hoje}&tipo=DESPESA`;
+    expect((await a.get(filtro)).body.map((c: any) => c.id)).toEqual([lazer.id]);
+    expect((await b.get(filtro)).body).toEqual([]);
+    expect((await b.get(`/api/resumo?periodicidade=mes&referencia=${hoje}`)).body.saldoAtual).toBe(0);
+    expect((await b.delete(`/api/transacoes/${despesa.body.id}`).set("X-CSRF-Token", loginB.body.csrf)).status).toBe(404);
+    const mes = hoje.slice(0, 7);
+    const meta = await a.post("/api/metas").set("X-CSRF-Token", csrf).send({ categoriaId: lazer.id, mes, limite: 120.25 });
+    expect(meta.status).toBe(201);
+    expect(meta.body.moeda).toBe("BRL");
+    expect(meta.body.inicio).toBe(`${mes}-01`);
+    expect(meta.body.fimExclusivo).toMatch(/^\d{4}-\d{2}-01$/);
+    expect((await a.post("/api/metas").set("X-CSRF-Token", csrf).send({ categoriaId: lazer.id, mes, limite: 5 })).status).toBe(409);
+    expect((await a.post("/api/metas").set("X-CSRF-Token", csrf).send({ categoriaId: renda.id, mes, limite: 5 })).status).toBe(422);
+    expect((await a.post("/api/metas").set("X-CSRF-Token", csrf).send({ categoriaId: lazer.id, mes, limite: 1.001 })).status).toBe(422);
+    expect((await a.post("/api/metas").set("X-CSRF-Token", csrf).send({ categoriaId: lazer.id, mes: "2026-13", limite: 1 })).status).toBe(422);
+    expect((await a.post("/api/metas").set("X-CSRF-Token", csrf).send({ categoriaId: "inexistente", mes, limite: 1 })).status).toBe(422);
+    expect((await b.get("/api/metas")).body).toEqual([]);
+    const metaB = await b.post("/api/metas").set("X-CSRF-Token", loginB.body.csrf).send({ categoriaId: lazer.id, mes, limite: 30 });
+    expect(metaB.status).toBe(201);
+    expect((await a.get("/api/metas")).body).toHaveLength(1);
+    const progresso = async (agent: typeof a, categoriaId: string, periodo = mes) => {
+      const resposta = await agent.get(`/api/metas?mes=${periodo}`);
+      expect(resposta.status).toBe(200);
+      return resposta.body.find((item: any) => item.categoriaId === categoriaId)?.progresso;
+    };
+    expect(await progresso(a, lazer.id)).toEqual({ gastoConsiderado: 25.5, restante: 94.75, excedente: 0, percentualUtilizacao: 21.21 });
+    expect((await a.get(`/api/metas?mes=${mes}`)).body[0].alertas).toEqual([]);
+    expect(await progresso(b, lazer.id)).toEqual({ gastoConsiderado: 0, restante: 30, excedente: 0, percentualUtilizacao: 0 });
+    expect((await b.get(`/api/metas?mes=${mes}`)).body[0].alertas).toEqual([]);
+    expect((await a.post("/api/metas").set("X-CSRF-Token", csrf).send({ categoriaId: saude.id, mes, limite: 10 })).status).toBe(201);
+    expect((await a.post("/api/metas").set("X-CSRF-Token", csrf).send({ categoriaId: ambos.id, mes, limite: 10 })).status).toBe(201);
+    await a.post("/api/transacoes").set("X-CSRF-Token", csrf).send({ tipo: "RECEITA", valor: 7, descricao: "Receita categoria ambos", data: hoje, categoriaId: ambos.id });
+    expect((await progresso(a, ambos.id)).gastoConsiderado).toBe(0);
+    await a.post("/api/transacoes").set("X-CSRF-Token", csrf).send({ tipo: "DESPESA", valor: 5, descricao: "Saúde", data: hoje, prioridade: "IMPORTANTE", categoriaId: saude.id });
+    expect((await progresso(a, saude.id)).gastoConsiderado).toBe(5);
+    const mesAnterior = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)) - 1, 0)).toISOString().slice(0, 10);
+    const mesAnteriorMeta = mesAnterior.slice(0, 7);
+    const limitePeriodo = intervaloPeriodo("mes", `${mesAnteriorMeta}-15`);
+    expect((await a.post("/api/metas").set("X-CSRF-Token", csrf).send({ categoriaId: ambos.id, mes: mesAnteriorMeta, limite: 10 })).status).toBe(201);
+    await prisma.transacao.createMany({ data: [
+      { id: randomUUID(), usuarioId: cadastro.body.id, categoriaId: ambos.id, tipo: "DESPESA", valor: "3.25", descricao: "Último milissegundo", prioridade: "IMPORTANTE", data: new Date(limitePeriodo.fimExclusivo.getTime() - 1) },
+      { id: randomUUID(), usuarioId: cadastro.body.id, categoriaId: ambos.id, tipo: "DESPESA", valor: "8.00", descricao: "Primeiro milissegundo fora", prioridade: "IMPORTANTE", data: limitePeriodo.fimExclusivo },
+    ] });
+    expect((await progresso(a, ambos.id, mesAnteriorMeta)).gastoConsiderado).toBe(3.25);
+    const antesDaDespesa = new Date(limitePeriodo.inicio.getTime() + 10 * 86400000);
+    expect((await metasApl.listar(cadastro.body.id, mesAnteriorMeta, antesDaDespesa))[0].progresso.gastoConsiderado).toBe(0);
+    expect((await progresso(a, lazer.id)).gastoConsiderado).toBe(25.5);
+    const editarDespesa = async (valor: number, categoriaId = lazer.id, data = hoje) =>
+      a.put(`/api/transacoes/${despesa.body.id}`).set("X-CSRF-Token", csrf).send({ tipo: "DESPESA", valor, descricao: "Lazer editado", data, prioridade: "IMPORTANTE", categoriaId });
+    expect((await editarDespesa(96.2)).status).toBe(200);
+    expect((await a.get(`/api/metas?mes=${mes}`)).body.find((item: any) => item.id === meta.body.id).alertas).toEqual([80]);
+    expect((await editarDespesa(25.5)).status).toBe(200);
+    expect((await a.get(`/api/metas?mes=${mes}`)).body.find((item: any) => item.id === meta.body.id).alertas).toEqual([]);
+    expect((await editarDespesa(140.25)).status).toBe(200);
+    const doisLimiar = (await a.get(`/api/metas?mes=${mes}`)).body.find((item: any) => item.id === meta.body.id).alertas;
+    expect(doisLimiar).toEqual([80, 100]);
+    expect((await a.get(`/api/metas?mes=${mes}`)).body.find((item: any) => item.id === meta.body.id).alertas).toEqual(doisLimiar);
+    expect((await editarDespesa(120.25)).status).toBe(200);
+    expect(await progresso(a, lazer.id)).toEqual({ gastoConsiderado: 120.25, restante: 0, excedente: 0, percentualUtilizacao: 100 });
+    expect((await a.get(`/api/metas?mes=${mes}`)).body.find((item: any) => item.id === meta.body.id).alertas).toEqual([80, 100]);
+    expect((await editarDespesa(140.25)).status).toBe(200);
+    expect((await progresso(a, lazer.id)).excedente).toBe(20);
+    expect((await editarDespesa(140.25, saude.id)).status).toBe(200);
+    expect((await progresso(a, lazer.id)).gastoConsiderado).toBe(0);
+    expect((await a.get(`/api/metas?mes=${mes}`)).body.find((item: any) => item.id === meta.body.id).alertas).toEqual([]);
+    expect((await progresso(a, saude.id)).gastoConsiderado).toBe(145.25);
+    expect((await a.get(`/api/metas?mes=${mes}`)).body.find((item: any) => item.categoriaId === saude.id).alertas).toEqual([80, 100]);
+    expect((await editarDespesa(140.25, saude.id, mesAnterior)).status).toBe(200);
+    expect((await progresso(a, saude.id)).gastoConsiderado).toBe(5);
+    expect((await a.get(`/api/metas?mes=${mes}`)).body.find((item: any) => item.categoriaId === saude.id).alertas).toEqual([]);
+    const futuroMes = `${ano + 2}-01`;
+    expect((await a.post("/api/metas").set("X-CSRF-Token", csrf).send({ categoriaId: lazer.id, mes: futuroMes, limite: 50 })).status).toBe(201);
+    expect((await a.post("/api/transacoes").set("X-CSRF-Token", csrf).send({ tipo: "DESPESA", valor: 40, descricao: "Futuro", data: `${futuroMes}-10`, prioridade: "IMPORTANTE", categoriaId: lazer.id })).status).toBe(201);
+    expect((await progresso(a, lazer.id, futuroMes)).gastoConsiderado).toBe(0);
+    expect((await a.get(`/api/metas?mes=${futuroMes}`)).body[0].alertas).toEqual([]);
+    expect((await b.post("/api/transacoes").set("X-CSRF-Token", loginB.body.csrf).send({ tipo: "DESPESA", valor: 10, descricao: "Só Bob", data: hoje, prioridade: "IMPORTANTE", categoriaId: lazer.id })).status).toBe(201);
+    expect((await progresso(b, lazer.id)).gastoConsiderado).toBe(10);
+    expect((await progresso(a, lazer.id)).gastoConsiderado).toBe(0);
+    expect((await a.delete(`/api/transacoes/${despesa.body.id}`).set("X-CSRF-Token", csrf)).status).toBe(204);
+    expect((await progresso(a, saude.id)).gastoConsiderado).toBe(5);
+    expect((await b.put(`/api/metas/${meta.body.id}`).set("X-CSRF-Token", loginB.body.csrf).send({ categoriaId: lazer.id, mes, limite: 10 })).status).toBe(404);
+    expect((await b.delete(`/api/metas/${meta.body.id}`).set("X-CSRF-Token", loginB.body.csrf)).status).toBe(404);
+    const proximoMes = new Date(`${mes}-15T12:00:00Z`); proximoMes.setUTCMonth(proximoMes.getUTCMonth() + 1);
+    const outroMes = proximoMes.toISOString().slice(0, 7);
+    expect((await a.put(`/api/metas/${meta.body.id}`).set("X-CSRF-Token", csrf).send({ categoriaId: lazer.id, mes: outroMes, limite: 150.5 })).status).toBe(200);
+    expect((await a.get(`/api/metas?mes=${mes}`)).body.some((item: any) => item.id === meta.body.id)).toBe(false);
+    expect((await a.get(`/api/metas?mes=${outroMes}`)).body.find((item: any) => item.id === meta.body.id).limite).toBe(150.5);
+    expect((await a.delete(`/api/metas/${meta.body.id}`).set("X-CSRF-Token", csrf)).status).toBe(204);
+    expect((await a.delete(`/api/metas/${meta.body.id}`).set("X-CSRF-Token", csrf)).status).toBe(404);
+    expect((await a.post("/api/auth/solicitar-recuperacao").send({ email: emails[0] })).status).toBe(200);
+    const resetToken = links[2];
+    await prisma.tokenConta.updateMany({ where: { tokenHash: createHash("sha256").update(resetToken).digest("hex") }, data: { expiraEm: new Date(0) } });
+    expect((await a.post("/api/auth/redefinir-senha").send({ token: resetToken, senha: "NovaSenha!123", confirmarSenha: "NovaSenha!123" })).status).toBe(410);
+    await prisma.tokenConta.deleteMany({ where: { tokenHash: createHash("sha256").update(resetToken).digest("hex") } });
+    await a.post("/api/auth/solicitar-recuperacao").send({ email: emails[0] });
+    expect((await a.post("/api/auth/redefinir-senha").send({ token: links[3], senha: "NovaSenha!123", confirmarSenha: "NovaSenha!123" })).status).toBe(200);
+    expect((await a.get("/api/auth/me")).status).toBe(401);
+    expect((await a.post("/api/auth/login").send({ email: emails[0], senha: "SenhaTeste!123" })).status).toBe(401);
+    expect((await a.post("/api/auth/login").send({ email: emails[0], senha: "NovaSenha!123" })).status).toBe(200);
+    ids = [cadastro.body.id, (await prisma.usuario.findUnique({ where: { emailBusca: emails[1] } }))!.id];
+  } finally {
+    if (!ids.length) ids = (await prisma.usuario.findMany({ where: { emailBusca: { in: emails } }, select: { id: true } })).map(u => u.id);
+    await prisma.transacao.deleteMany({ where: { usuarioId: { in: ids } } });
+    await prisma.metaGasto.deleteMany({ where: { usuarioId: { in: ids } } });
+    await prisma.tokenConta.deleteMany({ where: { usuarioId: { in: ids } } });
+    await prisma.sessao.deleteMany({ where: { usuarioId: { in: ids } } });
+    await prisma.usuario.deleteMany({ where: { id: { in: ids } } });
+    await prisma.categoria.deleteMany({ where: { nome: { in: categorias.map(c => c.nome) } } });
+    await prisma.$disconnect();
+  }
+}, 30000);
