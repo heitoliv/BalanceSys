@@ -19,3 +19,6 @@
 **/*.pyc
 GPS/.local/
 **/release.env
+
+# Dados locais, mensagens históricas e exportações privadas.
+GPS/.local/

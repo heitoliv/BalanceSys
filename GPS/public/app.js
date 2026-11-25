@@ -54,9 +54,7 @@ function mostrarAuth() {
   cancelarEdicao();
   $("#auth-mensagem").textContent = "";
   $("#auth-mensagem").className = "aviso";
-  ocultarCodigo("auth");
-  ocultarCodigo("conta");
-  for (const id of ["auth-nickname", "auth-senha", "auth-confirmar", "auth-codigo", "conta-codigo-senha", "conta-nickname-novo", "conta-nickname-senha", "conta-senha-atual", "conta-senha-nova", "conta-senha-confirmar"]) $("#" + id).value = "";
+  for (const id of ["auth-nickname", "auth-senha", "auth-confirmar", "conta-nickname-novo", "conta-nickname-senha", "conta-senha-atual", "conta-senha-nova", "conta-senha-confirmar"]) $("#" + id).value = "";
   atualizarRegrasConta();
   $("#conta-mensagem").textContent = "";
   categorias = [];
@@ -87,40 +85,23 @@ function mensagemAuth(texto, erro = false) {
   $("#auth-mensagem").className = texto ? `aviso ${erro ? "erro" : "ok"}` : "aviso";
 }
 function limparErrosAuth() {
-  for (const campo of ["nome", "nickname", "senha", "confirmacao", "codigo"]) $("#erro-" + campo).textContent = "";
+  for (const campo of ["nome", "nickname", "senha", "confirmacao"]) $("#erro-" + campo).textContent = "";
 }
-function ocultarCodigo(local) {
-  $("#" + local + "-codigo-gerado").textContent = "";
-  $("#" + local + "-codigo-caixa").classList.add("oculto");
-  if (local === "auth") { $("#auth-form").classList.remove("oculto"); $("#auth-links").classList.remove("oculto"); }
-}
-function mostrarCodigo(local, codigo) {
-  $("#" + local + "-codigo-gerado").textContent = codigo;
-  $("#" + local + "-codigo-caixa").classList.remove("oculto");
-  if (local === "auth") { $("#auth-form").classList.add("oculto"); $("#auth-links").classList.add("oculto"); }
-  $("#" + local + "-codigo-caixa").scrollIntoView({ block: "nearest" });
-  $("#" + local + "-codigo-ok").focus();
-}
-$("#auth-codigo-ok").onclick = () => { ocultarCodigo("auth"); $("#auth-nickname").focus(); };
-$("#conta-codigo-ok").onclick = () => { ocultarCodigo("conta"); $("#conta-codigo-senha").focus(); };
 function modo(novo, aviso = "") {
   modoAuth = novo;
   limparErrosAuth();
   mensagemAuth(aviso);
-  const cadastro = novo === "cadastro", recuperar = novo === "recuperar";
-  $("#auth-titulo").textContent = recuperar ? "Recuperar senha" : cadastro ? "Criar conta" : "Entrar";
-  $("#auth-ajuda").textContent = recuperar ? "Informe seu nome de usuário, código de recuperação e nova senha. O código antigo será invalidado." : cadastro ? "Escolha um nome de usuário único e uma senha." : "Entre com seu nome de usuário e senha.";
-  $("#auth-enviar").textContent = recuperar ? "Alterar senha" : cadastro ? "Cadastrar" : "Entrar";
+  const cadastro = novo === "cadastro";
+  $("#auth-titulo").textContent = cadastro ? "Criar conta" : "Entrar";
+  $("#auth-ajuda").textContent = cadastro ? "Escolha um nome de usuário único e uma senha." : "Entre com seu nome de usuário e senha.";
+  $("#auth-enviar").textContent = cadastro ? "Cadastrar" : "Entrar";
   $("#campo-nome").classList.toggle("oculto", !cadastro);
-  $("#campo-codigo").classList.toggle("oculto", !recuperar);
-  $("#campo-confirmacao").classList.toggle("oculto", !cadastro && !recuperar);
-  $("#regras-senha").classList.toggle("oculto", !cadastro && !recuperar);
-  $("#auth-recuperar").classList.toggle("oculto", novo !== "login");
-  $("#auth-alternar").textContent = cadastro || recuperar ? "Voltar ao login" : "Criar conta";
-  $("#auth-senha").autocomplete = cadastro || recuperar ? "new-password" : "current-password";
+  $("#campo-confirmacao").classList.toggle("oculto", !cadastro);
+  $("#regras-senha").classList.toggle("oculto", !cadastro);
+  $("#auth-alternar").textContent = cadastro ? "Voltar ao login" : "Criar conta";
+  $("#auth-senha").autocomplete = cadastro ? "new-password" : "current-password";
   $("#auth-senha").value = "";
   $("#auth-confirmar").value = "";
-  $("#auth-codigo").value = "";
   atualizarRegras();
 }
 function atualizarRegras() {
@@ -145,7 +126,6 @@ document.querySelectorAll(".mostrar-senha").forEach(botao => botao.addEventListe
   campo.focus();
 }));
 $("#auth-alternar").onclick = ev => { ev.preventDefault(); modo(modoAuth === "login" ? "cadastro" : "login"); };
-$("#auth-recuperar").onclick = ev => { ev.preventDefault(); modo("recuperar"); };
 $("#auth-form").onsubmit = async (ev) => {
   ev.preventDefault();
   const nickname = $("#auth-nickname").value.trim();
@@ -154,20 +134,19 @@ $("#auth-form").onsubmit = async (ev) => {
   if (!/^[A-Za-z0-9_][A-Za-z0-9_.-]{2,29}$/.test(nickname) || ["admin", "root", "support", "suporte", "balancesys"].includes(nickname.toLowerCase())) {
     $("#erro-nickname").textContent = "Escolha um nome de usuário válido."; return;
   }
-  if (modoAuth === "cadastro" || modoAuth === "recuperar") {
+  if (modoAuth === "cadastro") {
     if (!atualizarRegras()) { $("#erro-senha").textContent = "Atenda aos requisitos ainda não marcados."; return; }
     if (senha !== $("#auth-confirmar").value) { $("#erro-confirmacao").textContent = "As senhas não coincidem."; return; }
   }
   if (modoAuth === "login" && !senha) { $("#erro-senha").textContent = "Informe a senha."; return; }
-  if (modoAuth === "recuperar" && !/^[a-f0-9]{64}$/i.test($("#auth-codigo").value.trim())) { $("#erro-codigo").textContent = "Informe o código de recuperação de 64 caracteres."; return; }
   $("#auth-enviar").disabled = true;
   try {
-    const corpo = modoAuth === "cadastro" ? { nome: $("#auth-nome").value, nickname, senha, confirmarSenha: $("#auth-confirmar").value } : modoAuth === "recuperar" ? { nickname, codigo: $("#auth-codigo").value.trim(), senha, confirmarSenha: $("#auth-confirmar").value } : { nickname, senha };
-    const rota = modoAuth === "cadastro" ? "cadastro" : modoAuth === "recuperar" ? "recuperar-senha" : "login";
+    const corpo = modoAuth === "cadastro" ? { nome: $("#auth-nome").value, nickname, senha, confirmarSenha: $("#auth-confirmar").value } : { nickname, senha };
+    const rota = modoAuth === "cadastro" ? "cadastro" : "login";
     const r = await fetch(`${API}/auth/${rota}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) });
     const data = await r.json();
     if (!r.ok) { if (data.campo) $("#erro-" + (data.campo === "confirmarSenha" ? "confirmacao" : data.campo)).textContent = data.erro; throw new Error(data.erro); }
-    if (modoAuth === "cadastro" || modoAuth === "recuperar") { modo("login", data.mensagem); mostrarCodigo("auth", data.codigoRecuperacao); return; }
+    if (modoAuth === "cadastro") { modo("login", data.mensagem); return; }
     csrf = data.csrf;
     $("#auth-senha").value = "";
     mostrarApp(data.usuario);
@@ -221,18 +200,6 @@ $("#conta-nickname-form").onsubmit = async ev => {
     $("#conta-nickname-senha").value = "";
     $("#conta-mensagem").textContent = data.mensagem;
   } catch (e) { erro.textContent = e.message || "Não foi possível alterar o nome de usuário."; }
-};
-
-$("#conta-codigo-form").onsubmit = async ev => {
-  ev.preventDefault();
-  $("#conta-codigo-erro").textContent = "";
-  try {
-    const r = await fetch(`${API}/auth/gerar-codigo-recuperacao`, { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: JSON.stringify({ senhaAtual: $("#conta-codigo-senha").value }) });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.erro);
-    $("#conta-codigo-senha").value = "";
-    mostrarCodigo("conta", data.codigoRecuperacao);
-  } catch (e) { $("#conta-codigo-erro").textContent = e.message || "Não foi possível gerar o código."; }
 };
 
 function atualizarRegrasConta() {

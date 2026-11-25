@@ -22,6 +22,7 @@ export function criarApp(container: Container): Express {
     catch { res.status(503).json({ status: "unavailable" }); }
   });
   app.use("/api/auth", criarRotasAuth(container.auth));
+  app.use("/api/auth", (_req, res) => res.status(404).json({ erro: "Rota não encontrada." }));
 
   const listarCategorias = async () =>
     container.prisma.categoria.findMany({ orderBy: { nome: "asc" } });

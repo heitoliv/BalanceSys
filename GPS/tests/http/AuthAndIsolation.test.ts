@@ -54,7 +54,6 @@ it("nickname único sem distinção de caixa, sessão e isolamento de transaçõ
   expect((await a.post("/api/auth/logout").set("X-CSRF-Token", la.body.csrf)).status).toBe(204);
   expect((await a.get("/api/transacoes")).status).toBe(401);
 });
-
 it("valida nickname, senha e confirmação e impede alteração de outra conta", async () => {
   const { app } = fixture(); const a = request.agent(app), b = request.agent(app);
   for (const nickname of ["ab", ".alice", "alice@host", "admin", "álice"]) {
@@ -74,11 +73,4 @@ it("valida nickname, senha e confirmação e impede alteração de outra conta",
   expect((await a.post("/api/auth/alterar-nickname").set("X-CSRF-Token", la.body.csrf).send({ nickname: "NovaAlice", senhaAtual: senha, usuarioId: lb.body.usuario.id })).status).toBe(200);
   expect((await a.get("/api/auth/me")).body.usuario.nickname).toBe("NovaAlice");
   expect((await b.get("/api/auth/me")).body.usuario.nickname).toBe("Bob_02");
-});
-
-it("limita tentativas repetidas de recuperação pelo mesmo IP e nickname", async () => {
-  const { app } = fixture();
-  const corpo = { nickname: "_semconta_recuperacao", codigo: "a".repeat(64), senha: "NovaSenha1!", confirmarSenha: "NovaSenha1!" };
-  for (let i = 0; i < 8; i++) expect((await request(app).post("/api/auth/recuperar-senha").send(corpo)).status).toBe(401);
-  expect((await request(app).post("/api/auth/recuperar-senha").send(corpo)).status).toBe(429);
 });

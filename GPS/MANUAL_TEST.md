@@ -51,7 +51,7 @@ Use `_teste_a_2026` e `2teste_b_2026` se ainda não existirem; para repetição,
 
 | Ação | Resultado esperado | PBI |
 |---|---|---|
-| Criar conta A com nickname, nome, senha válida e confirmação | Cadastro persistido, código de recuperação exibido uma vez; guarde-o, depois vá ao login sem sessão automática | 01, 02 |
+| Criar conta A com nickname, nome, senha válida e confirmação | Cadastro persistido e retorno ao login, sem sessão automática | 01, 02 |
 | Repetir o mesmo nickname com caixa diferente | Erro claro de duplicidade | 01 |
 | Tentar nickname curto, com arroba ou reservado; senha fraca e confirmação diferente | Erros junto aos campos | 01 |
 | Login com senha errada e depois correta | Erro genérico, depois painel próprio | 02 |
@@ -60,12 +60,10 @@ Use `_teste_a_2026` e `2teste_b_2026` se ainda não existirem; para repetição,
 | Criar e editar meta da categoria da despesa | Progresso usa o gasto daquele mês | 08, 09, 10 |
 | Em Minha conta, alterar nickname com senha atual | Novo nickname aparece; antigo deixa de autenticar | 02 |
 | Alterar senha com senha atual, nova senha e confirmação | Sessões revogadas; novo login obrigatório | 02 |
-| Na tela inicial, usar Esqueci minha senha com código guardado | Senha muda, sessões são revogadas e novo código é mostrado uma vez; código antigo falha | 02 |
-| Em Minha conta, gerar outro código com a senha atual | Código anterior é invalidado; novo código é exibido uma vez | 02 |
 | Sair da conta e abrir `/api/auth/me` | Resposta 401 e valores ocultos | 02 |
 | Criar conta B; consultar histórico e metas | B não vê nem altera dados de A | 02, 07, 08, 11, 12 |
 
-Contas anteriores à migração devem gerar o primeiro código em Minha conta enquanto ainda conseguem entrar. Sem senha nem código, o operador precisa verificar a identidade fora da aplicação para o procedimento legado. Confira teclado, foco e mensagens durante cada etapa.
+Sem acesso à conta, o operador precisa verificar a identidade fora da aplicação antes da redefinição administrativa. Confira teclado, foco e mensagens durante cada etapa.
 
 ## Conferir o progresso das metas (PBI-09)
 
@@ -85,7 +83,7 @@ Ao registrar uma despesa com meta existente, confira também a mensagem junto ao
 - **Login não persiste:** use sempre `http://localhost:3000/` nesta sessão, confirme `NODE_ENV=development` via `local_env.py check`, e verifique no DevTools se o cookie `balancesys_session` foi aceito. O cookie é HttpOnly e não aparece em `document.cookie`; produção exige HTTPS e cookie Secure.
 - **429 no login:** após cinco senhas erradas para o mesmo IP/nickname, aguarde 15 minutos ou use outra conta de teste. A limitação é por processo.
 - **Categoria ausente:** execute `npm run seed` pelo wrapper após a migração. O seed não cria usuários.
-- **Senha esquecida:** use Esqueci minha senha com o código guardado. Sem senha e sem código previamente emitido, o procedimento administrativo legado ainda é necessário; veja o README.
+- **Senha esquecida:** a redefinição depende de conferência de identidade pelo operador; veja o README.
 
 ## Compose, somente quando houver Docker Engine
 

@@ -36,7 +36,8 @@ try:
     driver.get(os.environ.get("BALANCESYS_BROWSER_URL", "http://localhost:3000/"))
     esperar.until(lambda d: d.find_element(By.CSS_SELECTOR, "#auth-alternar").is_displayed())
     assert "Nome de usuário" in campo("#campo-nickname").text
-    assert campo("#auth-recuperar").is_displayed()
+    assert not driver.find_elements(By.CSS_SELECTOR, "#auth-recuperar")
+    assert "responsável" in campo("#area-auth").text
 
     def cadastrar(nickname):
         campo("#auth-alternar").click()
@@ -46,11 +47,7 @@ try:
         digitar("#auth-confirmar", "SenhaTeste1!")
         campo("#auth-enviar").click()
         conter("#auth-mensagem", "Conta criada")
-        codigo = campo("#auth-codigo-gerado").text
-        assert len(codigo) == 64
-        campo("#auth-codigo-ok").click()
         assert not campo("#area-app").is_displayed()
-        return codigo
 
     def entrar(nickname, senha):
         digitar("#auth-nickname", nickname)
@@ -58,7 +55,7 @@ try:
         campo("#auth-enviar").click()
         esperar.until(lambda d: d.find_element(By.CSS_SELECTOR, "#area-app").is_displayed())
 
-    codigo_a = cadastrar(nick_a)
+    cadastrar(nick_a)
     entrar(nick_a, "SenhaTeste1!")
     campo("#bt-conta").click()
     novo_nick = "novo-" + nick_a
@@ -87,24 +84,11 @@ try:
     driver.save_screenshot("/tmp/balancesys-conta-manual.png")
     campo("#bt-sair").click()
     esperar.until(lambda d: d.find_element(By.CSS_SELECTOR, "#area-auth").is_displayed())
-    codigo_b = cadastrar(nick_b)
+    cadastrar(nick_b)
     entrar(nick_b, "SenhaTeste1!")
     campo("#bt-conta").click()
     conter("#conta-nickname", nick_b)
     assert nick_a not in campo("#area-conta").text
-    campo("#bt-sair").click()
-    esperar.until(lambda d: d.find_element(By.CSS_SELECTOR, "#area-auth").is_displayed())
-    campo("#auth-recuperar").click()
-    digitar("#auth-nickname", nick_b)
-    digitar("#auth-codigo", codigo_b)
-    digitar("#auth-senha", "Recupera1!")
-    digitar("#auth-confirmar", "Recupera1!")
-    campo("#auth-enviar").click()
-    conter("#auth-mensagem", "Senha alterada")
-    assert len(campo("#auth-codigo-gerado").text) == 64
-    assert campo("#auth-codigo-gerado").text != codigo_b
-    campo("#auth-codigo-ok").click()
-    entrar(nick_b, "Recupera1!")
-    print("Firefox: cadastro, nickname, senha, recuperação por código, sessão e isolamento passaram")
+    print("Firefox: cadastro sem código, nickname, alteração de senha, sessão e isolamento passaram")
 finally:
     driver.quit()
