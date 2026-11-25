@@ -18,3 +18,4 @@
 **/__pycache__/
 **/*.pyc
 GPS/.local/
+**/release.env

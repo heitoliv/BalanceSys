@@ -17,7 +17,7 @@ services:
   migrate:
     build:
       context: .
-      target: builder
+      target: migrator
     environment:
       DATABASE_URL: postgresql://balancesys:${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD em .env}@db:5432/balancesys?schema=public
     command: ["npm", "run", "prisma:migrate"]
@@ -35,8 +35,6 @@ services:
       PORT: 3000
       NODE_ENV: development
       APP_BASE_URL: http://localhost:3000
-    volumes:
-      - mail_data:/app/.local/mail
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
@@ -52,4 +50,3 @@ services:
 
 volumes:
   postgres_data:
-  mail_data:

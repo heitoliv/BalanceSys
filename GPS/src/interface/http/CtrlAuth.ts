@@ -26,7 +26,7 @@ function erro(res: Response, e: unknown): void {
 
 function limitar(req: Request, res: Response, acao: string): boolean {
   const chaves = [
-    { chave: `${acao}:${req.ip}:${String(req.body?.email ?? "").trim().toLowerCase().slice(0, 254)}`, maximo: 5 },
+    { chave: `${acao}:${req.ip}:${String(req.body?.nickname ?? "").trim().toLowerCase().slice(0, 254)}`, maximo: acao === "recuperar-senha" ? 8 : 5 },
     { chave: `${acao}:${req.ip}:total`, maximo: 20 },
   ];
   const agora = Date.now();
@@ -50,38 +50,39 @@ export function criarRotasAuth(auth: AuthService): Router {
     if (!origemPermitida(req)) { res.status(403).json({ erro: "Origem inválida." }); return; }
     if (!req.is("application/json")) { res.status(415).json({ erro: "Envie JSON." }); return; }
     if (!limitar(req, res, "cadastro")) return;
-    try { res.status(201).json(await auth.cadastrar(req.body ?? {})); } catch (e) { erro(res, e); }
+    try { res.setHeader("Cache-Control", "no-store"); res.status(201).json(await auth.cadastrar(req.body ?? {})); } catch (e) { erro(res, e); }
   });
-  router.post("/reenviar-verificacao", async (req, res) => {
+  router.post("/recuperar-senha", async (req, res) => {
     if (!origemPermitida(req)) { res.status(403).json({ erro: "Origem inválida." }); return; }
     if (!req.is("application/json")) { res.status(415).json({ erro: "Envie JSON." }); return; }
-    if (!limitar(req, res, "verificacao")) return;
-    try { res.json({ mensagem: await auth.solicitarLink(req.body?.email, "VERIFICACAO") }); } catch (e) { erro(res, e); }
+    if (!limitar(req, res, "recuperar-senha")) return;
+    try {
+      const resultado = await auth.recuperarSenha(req.body?.nickname, req.body?.codigo, req.body?.senha, req.body?.confirmarSenha);
+      res.setHeader("Cache-Control", "no-store");
+      res.json({ ...resultado, mensagem: "Senha alterada. Guarde o novo código de recuperação e entre novamente." });
+    } catch (e) { erro(res, e); }
   });
-  router.post("/verificar", async (req, res) => {
+  router.post("/gerar-codigo-recuperacao", async (req, res) => {
     if (!origemPermitida(req)) { res.status(403).json({ erro: "Origem inválida." }); return; }
     if (!req.is("application/json")) { res.status(415).json({ erro: "Envie JSON." }); return; }
-    try { await auth.verificarEmail(req.body?.token); res.json({ mensagem: "E-mail verificado. Agora você pode entrar." }); } catch (e) { erro(res, e); }
-  });
-  router.post("/solicitar-recuperacao", async (req, res) => {
-    if (!origemPermitida(req)) { res.status(403).json({ erro: "Origem inválida." }); return; }
-    if (!req.is("application/json")) { res.status(415).json({ erro: "Envie JSON." }); return; }
-    if (!limitar(req, res, "recuperacao")) return;
-    try { res.json({ mensagem: await auth.solicitarLink(req.body?.email, "RECUPERACAO") }); } catch (e) { erro(res, e); }
-  });
-  router.post("/redefinir-senha", async (req, res) => {
-    if (!origemPermitida(req)) { res.status(403).json({ erro: "Origem inválida." }); return; }
-    if (!req.is("application/json")) { res.status(415).json({ erro: "Envie JSON." }); return; }
-    try { await auth.redefinirSenha(req.body?.token, req.body?.senha, req.body?.confirmarSenha); res.json({ mensagem: "Senha alterada. Entre novamente." }); } catch (e) { erro(res, e); }
+    try {
+      const usuario = await auth.autenticar(tokenDaRequisicao(req));
+      if (!usuario) { res.status(401).json({ erro: "Autenticação necessária." }); return; }
+      if (!auth.verificarCsrf(req.get("x-csrf-token"), usuario.csrfToken)) { res.status(403).json({ erro: "Token CSRF inválido." }); return; }
+      if (!limitar(req, res, `gerar-codigo:${usuario.id}`)) return;
+      const codigoRecuperacao = await auth.gerarCodigoRecuperacao(usuario.id, req.body?.senhaAtual);
+      res.setHeader("Cache-Control", "no-store");
+      res.json({ codigoRecuperacao, mensagem: "Novo código gerado. O anterior não funciona mais." });
+    } catch (e) { erro(res, e); }
   });
   router.post("/login", async (req, res) => {
     if (!origemPermitida(req)) { res.status(403).json({ erro: "Origem inválida." }); return; }
     if (!req.is("application/json")) { res.status(415).json({ erro: "Envie JSON." }); return; }
-    const chave = `${req.ip}:${String(req.body?.email ?? "").toLowerCase().slice(0, 254)}`;
+    const chave = `${req.ip}:${String(req.body?.nickname ?? "").toLowerCase().slice(0, 254)}`;
     const atual = tentativas.get(chave);
     if (atual && atual.ate > Date.now() && atual.n >= 5) { res.status(429).json({ erro: "Muitas tentativas. Tente novamente mais tarde." }); return; }
     try {
-      const sessao = await auth.entrar(req.body?.email, req.body?.senha);
+      const sessao = await auth.entrar(req.body?.nickname, req.body?.senha);
       tentativas.delete(chave);
       res.setHeader("Set-Cookie", cookie(sessao.token, 12 * 60 * 60));
       res.json({ usuario: sessao.usuario, csrf: sessao.csrf, expiraEm: sessao.expiraEm });
@@ -90,11 +91,36 @@ export function criarRotasAuth(auth: AuthService): Router {
       erro(res, e);
     }
   });
+  router.post("/alterar-nickname", async (req, res) => {
+    if (!origemPermitida(req)) { res.status(403).json({ erro: "Origem inválida." }); return; }
+    if (!req.is("application/json")) { res.status(415).json({ erro: "Envie JSON." }); return; }
+    try {
+      const usuario = await auth.autenticar(tokenDaRequisicao(req));
+      if (!usuario) { res.status(401).json({ erro: "Autenticação necessária." }); return; }
+      if (!auth.verificarCsrf(req.get("x-csrf-token"), usuario.csrfToken)) { res.status(403).json({ erro: "Token CSRF inválido." }); return; }
+      if (!limitar(req, res, `alterar-nickname:${usuario.id}`)) return;
+      const nickname = await auth.alterarNickname(usuario.id, req.body?.nickname, req.body?.senhaAtual);
+      res.json({ nickname, mensagem: "Nome de usuário atualizado." });
+    } catch (e) { erro(res, e); }
+  });
+  router.post("/alterar-senha", async (req, res) => {
+    if (!origemPermitida(req)) { res.status(403).json({ erro: "Origem inválida." }); return; }
+    if (!req.is("application/json")) { res.status(415).json({ erro: "Envie JSON." }); return; }
+    try {
+      const usuario = await auth.autenticar(tokenDaRequisicao(req));
+      if (!usuario) { res.status(401).json({ erro: "Autenticação necessária." }); return; }
+      if (!auth.verificarCsrf(req.get("x-csrf-token"), usuario.csrfToken)) { res.status(403).json({ erro: "Token CSRF inválido." }); return; }
+      if (!limitar(req, res, `alterar-senha:${usuario.id}`)) return;
+      await auth.alterarSenha(usuario.id, req.body?.senhaAtual, req.body?.novaSenha, req.body?.confirmarSenha);
+      res.setHeader("Set-Cookie", cookie("", 0));
+      res.json({ mensagem: "Senha alterada. Entre novamente." });
+    } catch (e) { erro(res, e); }
+  });
   router.get("/me", async (req, res) => {
     try {
       const usuario = await auth.autenticar(tokenDaRequisicao(req));
       if (!usuario) { res.status(401).json({ erro: "Autenticação necessária." }); return; }
-      res.json({ usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, criadoEm: usuario.criadoEm, emailVerificadoEm: usuario.emailVerificadoEm }, csrf: usuario.csrfToken });
+      res.json({ usuario: { id: usuario.id, nome: usuario.nome, nickname: usuario.nickname, criadoEm: usuario.criadoEm }, csrf: usuario.csrfToken });
     } catch (e) { erro(res, e); }
   });
   router.post("/logout", async (req, res) => {

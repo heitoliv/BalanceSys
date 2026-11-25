@@ -7,6 +7,16 @@ export type ProgressoMeta = {
   percentualUtilizacao: number;
 };
 export type LimiarMeta = 80 | 100;
+export type SituacaoMeta = "SEM_GASTOS" | "EM_ANDAMENTO" | "ATENCAO" | "LIMITE" | "EXCEDIDA";
+
+export function situacaoMeta(limiteCentavos: bigint, gastoCentavos: bigint): SituacaoMeta {
+  if (limiteCentavos <= 0n || gastoCentavos < 0n) throw new DomainError("Valores de meta inválidos.");
+  if (gastoCentavos === 0n) return "SEM_GASTOS";
+  if (gastoCentavos > limiteCentavos) return "EXCEDIDA";
+  if (gastoCentavos === limiteCentavos) return "LIMITE";
+  if (gastoCentavos * 100n >= limiteCentavos * 80n) return "ATENCAO";
+  return "EM_ANDAMENTO";
+}
 
 // Compara centavos exatos: um percentual arredondado para 80,00 não antecipa o alerta.
 export function limiaresAtingidos(limiteCentavos: bigint, gastoCentavos: bigint): LimiarMeta[] {

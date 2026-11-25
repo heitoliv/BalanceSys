@@ -17,3 +17,4 @@ prisma/backup
 **/__pycache__
 **/*.pyc
 .local
+release.env

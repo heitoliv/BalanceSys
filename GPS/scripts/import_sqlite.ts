@@ -40,7 +40,7 @@ async function main() {
   for (const r of await prisma.transacao.findMany({ select: { id: true } })) if (!ids.transacoes.has(r.id)) throw new Error("Destination has unrelated transactions");
 
   const outcome = await prisma.$transaction(async tx => {
-    for (const r of data.usuarios) await tx.usuario.upsert({ where: { id: r.id }, update: {}, create: { id: r.id, nome: r.nome, email: r.email, emailBusca: r.email.toLowerCase(), criadoEm: date(r.criadoEm) } });
+    for (const [index, r] of [...data.usuarios].sort((a, b) => a.id.localeCompare(b.id)).entries()) await tx.usuario.upsert({ where: { id: r.id }, update: {}, create: { id: r.id, nome: r.nome, nickname: `usuario_${index + 1}`, nicknameBusca: `usuario_${index + 1}`, criadoEm: date(r.criadoEm) } });
     for (const r of data.categorias) await tx.categoria.upsert({ where: { id: r.id }, update: {}, create: { id: r.id, nome: r.nome, tipo: r.tipo } });
     for (const r of data.transacoes) await tx.transacao.upsert({ where: { id: r.id }, update: {}, create: {
       id: r.id, tipo: r.tipo, valor: new Prisma.Decimal(r.valor), descricao: r.descricao,
@@ -55,11 +55,11 @@ async function main() {
   if (await tx.categoria.count() !== data.counts.categorias) divergence.push("categorias count");
   if (rows.length !== data.counts.transacoes) divergence.push("transacoes count");
   for (const tipo of ["RECEITA", "DESPESA"] as const) if (destTotals[tipo] !== totals[tipo]) divergence.push(`${tipo} aggregate`);
-  const destUsers = await tx.usuario.findMany({ select: { id: true, nome: true, email: true, criadoEm: true } });
+  const destUsers = await tx.usuario.findMany({ select: { id: true, nome: true, criadoEm: true } });
   const userById = new Map(destUsers.map(r => [r.id, r]));
   for (const source of data.usuarios) {
     const target = userById.get(source.id);
-    if (!target || target.nome !== source.nome || target.email !== source.email || target.criadoEm.getTime() !== date(source.criadoEm).getTime()) divergence.push(`user ${source.id}`);
+    if (!target || target.nome !== source.nome || target.criadoEm.getTime() !== date(source.criadoEm).getTime()) divergence.push(`user ${source.id}`);
   }
   const destCategories = await tx.categoria.findMany({ select: { id: true, nome: true, tipo: true } });
   const categoryById = new Map(destCategories.map(r => [r.id, r]));

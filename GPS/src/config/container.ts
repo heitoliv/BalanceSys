@@ -10,7 +10,6 @@ import { PrismaTransacaoRepository } from "../infrastructure/persistence/PrismaT
 import { bootstrap } from "../infrastructure/persistence/Bootstrap";
 import { AplControlarTransacao } from "../application/transacao/AplControlarTransacao";
 import { AuthService } from "../application/usuario/AuthService";
-import { EntregaEmailLocal, EntregaEmailSendmail } from "../infrastructure/mail/EntregaEmail";
 import { GerenciarMetas } from "../application/meta/GerenciarMetas";
 import { PrismaMetaRepository } from "../infrastructure/persistence/PrismaMetaRepository";
 
@@ -25,10 +24,12 @@ export interface Container {
 export function criarContainer(): Container {
   const production = process.env.NODE_ENV === "production";
   const baseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
-  if (production && (!baseUrl.startsWith("https://") || !process.env.MAIL_SENDMAIL_PATH)) {
-    throw new Error("Produção exige APP_BASE_URL HTTPS e MAIL_SENDMAIL_PATH");
+  if (production) {
+    let url: URL;
+    try { url = new URL(baseUrl); } catch { throw new Error("Produção exige APP_BASE_URL HTTPS público"); }
+    if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash ||
+        ["localhost", "127.0.0.1"].includes(url.hostname)) throw new Error("Produção exige APP_BASE_URL HTTPS público");
   }
-  const entrega = production ? new EntregaEmailSendmail(process.env.MAIL_SENDMAIL_PATH!) : new EntregaEmailLocal();
   const repositorio = new PrismaTransacaoRepository(prisma);
 
   const aplTransacao = new AplControlarTransacao(repositorio);
@@ -36,7 +37,7 @@ export function criarContainer(): Container {
   return {
     aplTransacao,
     prisma,
-    auth: new AuthService(prisma, entrega, baseUrl),
+    auth: new AuthService(prisma),
     metas: new GerenciarMetas(new PrismaMetaRepository(prisma)),
     inicializar: async () => {
       await bootstrap(prisma);

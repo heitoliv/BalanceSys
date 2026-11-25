@@ -10,33 +10,18 @@ datasource db {
 model Usuario {
   id        String      @id @default(uuid())
   nome      String
-  email     String      @unique
-  emailBusca String      @unique
+  nickname String @unique
+  nicknameBusca String @unique
   senhaHash String?
-  emailVerificadoEm DateTime?
+  recuperacaoHash String? @unique
+  recuperacaoCriadoEm DateTime?
   criadoEm  DateTime    @default(now())
 
   transacoes Transacao[]
   sessoes    Sessao[]
-  tokens     TokenConta[]
   metas      MetaGasto[]
 
   @@map("usuarios")
-}
-
-model TokenConta {
-  id        String    @id @default(uuid())
-  tokenHash String    @unique
-  tipo      String
-  expiraEm  DateTime
-  usadoEm   DateTime?
-  criadoEm  DateTime  @default(now())
-  usuarioId String
-  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-
-  @@index([usuarioId, tipo, criadoEm])
-  @@index([expiraEm])
-  @@map("tokens_conta")
 }
 
 model Sessao {

@@ -15,7 +15,7 @@ async function iniciar(): Promise<void> {
 
   const server = app.listen(PORTA, () => {
     // eslint-disable-next-line no-console
-    console.log(`BalanceSys rodando em http://localhost:${PORTA}`);
+    console.log(`BalanceSys escutando na porta ${PORTA}`);
   });
   const encerrar = () => server.close(async () => { await container.prisma.$disconnect(); process.exit(0); });
   process.once("SIGTERM", encerrar);
@@ -24,6 +24,6 @@ async function iniciar(): Promise<void> {
 
 iniciar().catch((e) => {
   // eslint-disable-next-line no-console
-  console.error("Falha ao iniciar o BalanceSys:", e);
+  console.error("Falha ao iniciar o BalanceSys:", e instanceof Error ? e.name : "erro");
   process.exit(1);
 });

@@ -1,6 +1,6 @@
 import { validarMeta, proximoMes } from "../../src/domain/meta/MetaGasto";
 import { senhaValida } from "../../src/domain/usuario/PoliticaConta";
-import { calcularProgresso, centavosDecimais, limiaresAtingidos } from "../../src/domain/meta/ProgressoMeta";
+import { calcularProgresso, centavosDecimais, limiaresAtingidos, situacaoMeta } from "../../src/domain/meta/ProgressoMeta";
 
 describe("Regras de metas mensais e senha", () => {
   const meta = { categoriaId: "categoria", mes: "2026-11", limite: 120.25 };
@@ -38,5 +38,14 @@ describe("Regras de metas mensais e senha", () => {
     expect(limiaresAtingidos(10000n, 12050n)).toEqual([80, 100]);
     expect(limiaresAtingidos(100001n, 80000n)).toEqual([]); // 79,9992%, exibível como 80,00%
     expect(() => limiaresAtingidos(0n, 0n)).toThrow();
+  });
+  it("informa progresso desde o primeiro centavo e destaca o excesso com limiares exatos", () => {
+    expect(situacaoMeta(10000n, 0n)).toBe("SEM_GASTOS");
+    expect(situacaoMeta(10000n, 1n)).toBe("EM_ANDAMENTO");
+    expect(situacaoMeta(100001n, 80000n)).toBe("EM_ANDAMENTO");
+    expect(situacaoMeta(10000n, 8000n)).toBe("ATENCAO");
+    expect(situacaoMeta(10000n, 10000n)).toBe("LIMITE");
+    expect(situacaoMeta(10000n, 10001n)).toBe("EXCEDIDA");
+    expect(() => situacaoMeta(0n, 1n)).toThrow();
   });
 });

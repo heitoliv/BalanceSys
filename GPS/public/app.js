@@ -9,7 +9,6 @@ let tipoAtual = "RECEITA";
 let categorias = [];
 let csrf = "";
 let modoAuth = "login";
-let tokenLink = "";
 let edicaoId = "";
 let edicaoAnterior = null;
 let metaEdicaoId = "";
@@ -50,9 +49,16 @@ function mostrarAuth() {
   $("#f-valor").value = "";
   $("#f-descricao").value = "";
   $("#impacto-meta").textContent = "";
+  $("#impacto-meta").classList.remove("meta-impacto-excedida");
+  $("#impacto-meta").setAttribute("role", "status");
   cancelarEdicao();
   $("#auth-mensagem").textContent = "";
   $("#auth-mensagem").className = "aviso";
+  ocultarCodigo("auth");
+  ocultarCodigo("conta");
+  for (const id of ["auth-nickname", "auth-senha", "auth-confirmar", "auth-codigo", "conta-codigo-senha", "conta-nickname-novo", "conta-nickname-senha", "conta-senha-atual", "conta-senha-nova", "conta-senha-confirmar"]) $("#" + id).value = "";
+  atualizarRegrasConta();
+  $("#conta-mensagem").textContent = "";
   categorias = [];
   metas = [];
   $("#metas-lista").replaceChildren();
@@ -81,25 +87,40 @@ function mensagemAuth(texto, erro = false) {
   $("#auth-mensagem").className = texto ? `aviso ${erro ? "erro" : "ok"}` : "aviso";
 }
 function limparErrosAuth() {
-  for (const campo of ["nome", "email", "senha", "confirmacao"]) $("#erro-" + campo).textContent = "";
+  for (const campo of ["nome", "nickname", "senha", "confirmacao", "codigo"]) $("#erro-" + campo).textContent = "";
 }
+function ocultarCodigo(local) {
+  $("#" + local + "-codigo-gerado").textContent = "";
+  $("#" + local + "-codigo-caixa").classList.add("oculto");
+  if (local === "auth") { $("#auth-form").classList.remove("oculto"); $("#auth-links").classList.remove("oculto"); }
+}
+function mostrarCodigo(local, codigo) {
+  $("#" + local + "-codigo-gerado").textContent = codigo;
+  $("#" + local + "-codigo-caixa").classList.remove("oculto");
+  if (local === "auth") { $("#auth-form").classList.add("oculto"); $("#auth-links").classList.add("oculto"); }
+  $("#" + local + "-codigo-caixa").scrollIntoView({ block: "nearest" });
+  $("#" + local + "-codigo-ok").focus();
+}
+$("#auth-codigo-ok").onclick = () => { ocultarCodigo("auth"); $("#auth-nickname").focus(); };
+$("#conta-codigo-ok").onclick = () => { ocultarCodigo("conta"); $("#conta-codigo-senha").focus(); };
 function modo(novo, aviso = "") {
   modoAuth = novo;
   limparErrosAuth();
   mensagemAuth(aviso);
-  const cadastro = novo === "cadastro", reset = novo === "redefinir";
-  $("#auth-titulo").textContent = ({ login: "Entrar", cadastro: "Criar conta", recuperar: "Recuperar senha", reenviar: "Reenviar verificação", verificar: "Verificar e-mail", redefinir: "Definir nova senha" })[novo];
-  $("#auth-ajuda").textContent = ({ login: "Entre com seu e-mail e senha.", cadastro: "Crie sua conta e verifique o link enviado.", recuperar: "Enviaremos um link se o endereço estiver apto.", reenviar: "Solicite outro link se o anterior expirou. Um novo pedido pode ser feito após dois minutos.", verificar: "Confirme o link recebido para liberar o login.", redefinir: "Escolha uma nova senha. As sessões antigas serão encerradas." })[novo];
-  $("#auth-enviar").textContent = ({ login: "Entrar", cadastro: "Cadastrar", recuperar: "Enviar link", reenviar: "Reenviar link", verificar: "Verificar e-mail", redefinir: "Alterar senha" })[novo];
+  const cadastro = novo === "cadastro", recuperar = novo === "recuperar";
+  $("#auth-titulo").textContent = recuperar ? "Recuperar senha" : cadastro ? "Criar conta" : "Entrar";
+  $("#auth-ajuda").textContent = recuperar ? "Informe seu nome de usuário, código de recuperação e nova senha. O código antigo será invalidado." : cadastro ? "Escolha um nome de usuário único e uma senha." : "Entre com seu nome de usuário e senha.";
+  $("#auth-enviar").textContent = recuperar ? "Alterar senha" : cadastro ? "Cadastrar" : "Entrar";
   $("#campo-nome").classList.toggle("oculto", !cadastro);
-  $("#campo-email").classList.toggle("oculto", novo === "verificar" || reset);
-  $("#campo-senha").classList.toggle("oculto", !["login", "cadastro", "redefinir"].includes(novo));
-  $("#campo-confirmacao").classList.toggle("oculto", !cadastro && !reset);
-  $("#regras-senha").classList.toggle("oculto", !cadastro && !reset);
-  $("#auth-alternar").textContent = cadastro ? "Já tenho conta" : "Criar conta";
-  $("#auth-senha").autocomplete = cadastro || reset ? "new-password" : "current-password";
+  $("#campo-codigo").classList.toggle("oculto", !recuperar);
+  $("#campo-confirmacao").classList.toggle("oculto", !cadastro && !recuperar);
+  $("#regras-senha").classList.toggle("oculto", !cadastro && !recuperar);
+  $("#auth-recuperar").classList.toggle("oculto", novo !== "login");
+  $("#auth-alternar").textContent = cadastro || recuperar ? "Voltar ao login" : "Criar conta";
+  $("#auth-senha").autocomplete = cadastro || recuperar ? "new-password" : "current-password";
   $("#auth-senha").value = "";
   $("#auth-confirmar").value = "";
+  $("#auth-codigo").value = "";
   atualizarRegras();
 }
 function atualizarRegras() {
@@ -119,41 +140,34 @@ document.querySelectorAll(".mostrar-senha").forEach(botao => botao.addEventListe
   const visivel = campo.type === "password";
   campo.type = visivel ? "text" : "password";
   botao.setAttribute("aria-pressed", String(visivel));
-  botao.setAttribute("aria-label", `${visivel ? "Ocultar" : "Mostrar"} ${campo.id === "auth-confirmar" ? "confirmação da senha" : "senha"}`);
+  botao.setAttribute("aria-label", `${visivel ? "Ocultar" : "Mostrar"} ${botao.dataset.label || (campo.id === "auth-confirmar" ? "confirmação da senha" : "senha")}`);
   botao.textContent = visivel ? "Ocultar" : "Mostrar";
   campo.focus();
 }));
-$("#auth-alternar").onclick = ev => { ev.preventDefault(); modo(modoAuth === "cadastro" ? "login" : "cadastro"); };
+$("#auth-alternar").onclick = ev => { ev.preventDefault(); modo(modoAuth === "login" ? "cadastro" : "login"); };
 $("#auth-recuperar").onclick = ev => { ev.preventDefault(); modo("recuperar"); };
-$("#auth-reenviar").onclick = ev => { ev.preventDefault(); modo("reenviar"); };
 $("#auth-form").onsubmit = async (ev) => {
   ev.preventDefault();
-  const email = $("#auth-email").value;
+  const nickname = $("#auth-nickname").value.trim();
   const senha = $("#auth-senha").value;
   limparErrosAuth();
-  if (!["verificar", "redefinir"].includes(modoAuth) && !email.trim()) { $("#erro-email").textContent = "Informe o e-mail."; return; }
-  if (!["verificar", "redefinir"].includes(modoAuth) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { $("#erro-email").textContent = "Informe um e-mail válido."; return; }
-  if (["cadastro", "redefinir"].includes(modoAuth)) {
+  if (!/^[A-Za-z0-9_][A-Za-z0-9_.-]{2,29}$/.test(nickname) || ["admin", "root", "support", "suporte", "balancesys"].includes(nickname.toLowerCase())) {
+    $("#erro-nickname").textContent = "Escolha um nome de usuário válido."; return;
+  }
+  if (modoAuth === "cadastro" || modoAuth === "recuperar") {
     if (!atualizarRegras()) { $("#erro-senha").textContent = "Atenda aos requisitos ainda não marcados."; return; }
     if (senha !== $("#auth-confirmar").value) { $("#erro-confirmacao").textContent = "As senhas não coincidem."; return; }
   }
   if (modoAuth === "login" && !senha) { $("#erro-senha").textContent = "Informe a senha."; return; }
+  if (modoAuth === "recuperar" && !/^[a-f0-9]{64}$/i.test($("#auth-codigo").value.trim())) { $("#erro-codigo").textContent = "Informe o código de recuperação de 64 caracteres."; return; }
   $("#auth-enviar").disabled = true;
   try {
-    const rota = ({ login: "login", cadastro: "cadastro", recuperar: "solicitar-recuperacao", reenviar: "reenviar-verificacao", verificar: "verificar", redefinir: "redefinir-senha" })[modoAuth];
-    const corpo = modoAuth === "cadastro" ? { nome: $("#auth-nome").value, email, senha, confirmarSenha: $("#auth-confirmar").value }
-      : modoAuth === "login" ? { email, senha }
-      : modoAuth === "recuperar" || modoAuth === "reenviar" ? { email }
-      : modoAuth === "verificar" ? { token: tokenLink }
-      : { token: tokenLink, senha, confirmarSenha: $("#auth-confirmar").value };
+    const corpo = modoAuth === "cadastro" ? { nome: $("#auth-nome").value, nickname, senha, confirmarSenha: $("#auth-confirmar").value } : modoAuth === "recuperar" ? { nickname, codigo: $("#auth-codigo").value.trim(), senha, confirmarSenha: $("#auth-confirmar").value } : { nickname, senha };
+    const rota = modoAuth === "cadastro" ? "cadastro" : modoAuth === "recuperar" ? "recuperar-senha" : "login";
     const r = await fetch(`${API}/auth/${rota}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) });
     const data = await r.json();
     if (!r.ok) { if (data.campo) $("#erro-" + (data.campo === "confirmarSenha" ? "confirmacao" : data.campo)).textContent = data.erro; throw new Error(data.erro); }
-    if (modoAuth !== "login") {
-      if (["cadastro", "verificar", "redefinir"].includes(modoAuth)) modo("login", data.mensagem);
-      else mensagemAuth(data.mensagem);
-      return;
-    }
+    if (modoAuth === "cadastro" || modoAuth === "recuperar") { modo("login", data.mensagem); mostrarCodigo("auth", data.codigoRecuperacao); return; }
     csrf = data.csrf;
     $("#auth-senha").value = "";
     mostrarApp(data.usuario);
@@ -183,8 +197,7 @@ $("#bt-conta").onclick = async () => {
   if (!r.ok) { $("#conta-mensagem").textContent = "Não foi possível carregar a conta."; return; }
   const { usuario } = await r.json();
   $("#conta-nome").textContent = usuario.nome;
-  $("#conta-email").textContent = usuario.email;
-  $("#conta-verificacao").textContent = usuario.emailVerificadoEm ? "E-mail verificado" : "Verificação pendente";
+  $("#conta-nickname").textContent = usuario.nickname;
   $("#conta-criada").textContent = usuario.criadoEm ? dataBR(usuario.criadoEm) : "Não informado";
   $("#area-financas").classList.add("oculto");
   $("#area-metas").classList.add("oculto");
@@ -195,14 +208,66 @@ $("#bt-conta").onclick = async () => {
   $("#conta-titulo").setAttribute("tabindex", "-1");
   $("#conta-titulo").focus();
 };
-$("#bt-recuperar-conta").onclick = async () => {
-  const aviso = $("#conta-mensagem");
-  const r = await fetch(`${API}/auth/me`);
-  if (r.status === 401) { mostrarAuth(); return; }
-  if (!r.ok) { aviso.textContent = "Serviço indisponível. Tente novamente."; return; }
-  const { usuario } = await r.json();
-  const pedido = await fetch(`${API}/auth/solicitar-recuperacao`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: usuario.email }) });
-  aviso.textContent = pedido.ok ? "Se a conta estiver apta, enviaremos um link ao seu e-mail." : "Não foi possível solicitar o link agora.";
+$("#conta-nickname-form").onsubmit = async ev => {
+  ev.preventDefault();
+  const erro = $("#conta-nickname-erro");
+  erro.textContent = "";
+  try {
+    const r = await fetch(`${API}/auth/alterar-nickname`, { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: JSON.stringify({ nickname: $("#conta-nickname-novo").value, senhaAtual: $("#conta-nickname-senha").value }) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.erro);
+    $("#conta-nickname").textContent = data.nickname;
+    $("#conta-nickname-novo").value = "";
+    $("#conta-nickname-senha").value = "";
+    $("#conta-mensagem").textContent = data.mensagem;
+  } catch (e) { erro.textContent = e.message || "Não foi possível alterar o nome de usuário."; }
+};
+
+$("#conta-codigo-form").onsubmit = async ev => {
+  ev.preventDefault();
+  $("#conta-codigo-erro").textContent = "";
+  try {
+    const r = await fetch(`${API}/auth/gerar-codigo-recuperacao`, { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: JSON.stringify({ senhaAtual: $("#conta-codigo-senha").value }) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.erro);
+    $("#conta-codigo-senha").value = "";
+    mostrarCodigo("conta", data.codigoRecuperacao);
+  } catch (e) { $("#conta-codigo-erro").textContent = e.message || "Não foi possível gerar o código."; }
+};
+
+function atualizarRegrasConta() {
+  const senha = $("#conta-senha-nova").value;
+  const regras = { tamanho: senha.length >= 6 && senha.length <= 20, maiuscula: /[A-Z]/.test(senha), minuscula: /[a-z]/.test(senha), numero: /[0-9]/.test(senha), especial: /[^\p{L}\p{N}\s]/u.test(senha) };
+  for (const [nome, ok] of Object.entries(regras)) {
+    const item = $(`[data-regra-conta="${nome}"]`);
+    item.classList.toggle("ok", ok);
+    item.textContent = `${ok ? "✓" : "○"} ${item.textContent.replace(/^[✓○] /, "")}`;
+  }
+  return Object.values(regras).every(Boolean);
+}
+$("#conta-senha-nova").addEventListener("input", atualizarRegrasConta);
+$("#conta-senha-form").onsubmit = async ev => {
+  ev.preventDefault();
+  const senhaAtual = $("#conta-senha-atual").value;
+  const novaSenha = $("#conta-senha-nova").value;
+  const confirmarSenha = $("#conta-senha-confirmar").value;
+  for (const campo of ["atual", "nova", "confirmar"]) $("#conta-senha-erro-" + campo).textContent = "";
+  if (!senhaAtual) { $("#conta-senha-erro-atual").textContent = "Informe a senha atual."; return; }
+  if (!atualizarRegrasConta()) { $("#conta-senha-erro-nova").textContent = "Atenda aos requisitos ainda não marcados."; return; }
+  if (novaSenha !== confirmarSenha) { $("#conta-senha-erro-confirmar").textContent = "As senhas não coincidem."; return; }
+  $("#conta-senha-salvar").disabled = true;
+  try {
+    const r = await fetch(`${API}/auth/alterar-senha`, { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: JSON.stringify({ senhaAtual, novaSenha, confirmarSenha }) });
+    const data = await r.json();
+    if (!r.ok) {
+      if (data.campo) $("#conta-senha-erro-" + ({ senhaAtual: "atual", novaSenha: "nova", confirmarSenha: "confirmar" })[data.campo]).textContent = data.erro;
+      if (r.status === 401 && !data.campo) { mostrarAuth(); modo("login", "Sessão expirada. Entre novamente."); return; }
+      $("#conta-mensagem").textContent = data.erro || "Não foi possível alterar a senha.";
+      return;
+    }
+    mostrarAuth(); modo("login", data.mensagem);
+  } catch { $("#conta-mensagem").textContent = "Serviço indisponível. Tente novamente."; }
+  finally { $("#conta-senha-salvar").disabled = false; }
 };
 
 function dataBR(iso) {
@@ -218,7 +283,9 @@ async function atualizarImpactoMetas(alvos) {
   const versao = ++impactoVersao;
   const impacto = $("#impacto-meta");
   const despesas = [...new Map(alvos.filter(a => a?.tipo === "DESPESA").map(a => [`${mesDaTransacao(a.data)}:${a.categoriaId}`, a])).entries()];
-  if (!despesas.length) { impacto.textContent = ""; return; }
+  if (!despesas.length) { impacto.textContent = ""; impacto.classList.remove("meta-impacto-excedida"); impacto.setAttribute("role", "status"); return; }
+  // Nova mutação deve ser anunciada mesmo se o total permanecer igual após edição.
+  impacto.textContent = "";
   const meses = [...new Set(despesas.map(([chave]) => chave.slice(0, 7)))];
   try {
     const respostas = await Promise.all(meses.map(async mes => {
@@ -233,8 +300,11 @@ async function atualizarImpactoMetas(alvos) {
       const categoria = categorias.find(c => c.id === alvo.categoriaId)?.nome ?? "categoria selecionada";
       if (!meta) return `Sem meta de gasto para ${categoria} em ${mes}.`;
       const p = meta.progresso;
-      return `Meta de ${categoria} em ${mes}: gasto ${fmt(p.gastoConsiderado)} de ${fmt(meta.limite)} (${Number(p.percentualUtilizacao).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%). ${p.excedente > 0 ? `Excedeu ${fmt(p.excedente)}.` : p.restante === 0 ? "Limite alcançado." : `Restam ${fmt(p.restante)}.`}${diaDaTransacao(alvo.data) > hojeLocal() ? " O lançamento futuro ainda não consome a meta." : ""}`;
+      return `Meta de ${categoria} em ${mes}: despesas registradas ${fmt(p.gastoConsiderado)} de ${fmt(meta.limite)} (${Number(p.percentualUtilizacao).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%). ${p.excedente > 0 ? `Atenção: meta ultrapassada em ${fmt(p.excedente)}.` : p.restante === 0 ? "Limite alcançado." : `Restam ${fmt(p.restante)}.`}`;
     });
+    const excedida = despesas.some(([chave, alvo]) => porMes.get(chave.slice(0, 7)).find(m => m.categoriaId === alvo.categoriaId)?.situacao === "EXCEDIDA");
+    impacto.classList.toggle("meta-impacto-excedida", excedida);
+    impacto.setAttribute("role", excedida ? "alert" : "status");
     impacto.textContent = mensagens.join(" ");
     return true;
   } catch {
@@ -254,9 +324,15 @@ function corCategoria(nome) {
     Moradia: "#0d9488", "Saúde": "#dc2626", Lazer: "#7c3aed", Outros: "#64748b" };
   return mapa[nome] || "#64748b";
 }
-function descricaoAlerta(meta, limiar) {
+function descricaoAlerta(meta) {
   const periodo = new Date(`${meta.mes}-15T12:00:00Z`).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
-  return `${meta.categoriaNome}, ${periodo}: atingiu ${limiar}% da meta. Gasto considerado ${fmt(meta.progresso.gastoConsiderado)} de ${fmt(meta.limite)}.`;
+  const p = meta.progresso;
+  const percentual = Number(p.percentualUtilizacao).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+  const base = `${meta.categoriaNome}, ${periodo}: despesas registradas ${fmt(p.gastoConsiderado)} de ${fmt(meta.limite)} (${percentual}%).`;
+  if (meta.situacao === "EXCEDIDA") return `ATENÇÃO: META ULTRAPASSADA. ${base} Excedeu ${fmt(p.excedente)}.`;
+  if (meta.situacao === "LIMITE") return `Limite alcançado. ${base}`;
+  if (meta.situacao === "ATENCAO") return `Atenção à meta. ${base} Restam ${fmt(p.restante)}.`;
+  return `${base} Restam ${fmt(p.restante)}.`;
 }
 async function carregarAlertasMesAtual() {
   const versao = ++alertasVersao;
@@ -265,12 +341,18 @@ async function carregarAlertasMesAtual() {
     const metasAtuais = await lerJson(await fetch(`${API}/metas?mes=${mes}`));
     if (versao !== alertasVersao) return true;
     const lista = $("#alertas-metas-lista");
-    const mensagens = metasAtuais.flatMap(meta => meta.alertas.map(limiar => descricaoAlerta(meta, limiar)));
-    if (lista.dataset.conteudo !== JSON.stringify(mensagens)) {
-      lista.replaceChildren(...mensagens.map(mensagem => { const li = document.createElement("li"); li.textContent = mensagem; return li; }));
-      lista.dataset.conteudo = JSON.stringify(mensagens);
+    const notificacoes = metasAtuais.filter(meta => meta.situacao !== "SEM_GASTOS");
+    const conteudo = JSON.stringify(notificacoes.map(meta => [meta.id, descricaoAlerta(meta)]));
+    if (lista.dataset.conteudo !== conteudo) {
+      lista.replaceChildren(...notificacoes.map(meta => {
+        const li = document.createElement("li");
+        li.className = meta.situacao === "EXCEDIDA" ? "meta-alerta-excedida" : meta.situacao === "LIMITE" ? "meta-alerta-limite" : "meta-alerta-progresso";
+        li.textContent = descricaoAlerta(meta);
+        return li;
+      }));
+      lista.dataset.conteudo = conteudo;
     }
-    $("#alertas-metas").classList.toggle("oculto", mensagens.length === 0);
+    $("#alertas-metas").classList.toggle("oculto", notificacoes.length === 0);
     return true;
   } catch {
     if (versao !== alertasVersao) return true;
@@ -346,13 +428,15 @@ async function carregarMetas() {
     if (p.excedente > 0) progresso.classList.add("excedida");
     const texto = document.createElement("p");
     const percentual = Number(p.percentualUtilizacao).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
-    texto.textContent = `Gasto ${fmt(p.gastoConsiderado)} · ${percentual}% utilizado. ${p.excedente > 0 ? `Excedeu ${fmt(p.excedente)}.` : p.restante === 0 ? "Limite alcançado." : `Restam ${fmt(p.restante)}.`}`;
+    texto.textContent = `Despesas registradas ${fmt(p.gastoConsiderado)} · ${percentual}% utilizado. ${p.excedente > 0 ? `Excedeu ${fmt(p.excedente)}.` : p.restante === 0 ? "Limite alcançado." : `Restam ${fmt(p.restante)}.`}`;
     const barra = document.createElement("progress"); barra.max = 100; barra.value = Math.min(100, p.percentualUtilizacao);
     barra.setAttribute("aria-label", `${percentual}% do limite de ${meta.categoriaNome} utilizado`);
     progresso.append(texto, barra);
-    if (meta.alertas.length) {
+    if (meta.situacao !== "SEM_GASTOS") {
       const avisos = document.createElement("ul"); avisos.className = "alertas-linha";
-      meta.alertas.forEach(limiar => { const li = document.createElement("li"); li.textContent = descricaoAlerta(meta, limiar); avisos.append(li); });
+      const li = document.createElement("li"); li.textContent = descricaoAlerta(meta);
+      if (meta.situacao === "EXCEDIDA") li.className = "meta-alerta-excedida";
+      avisos.append(li);
       progresso.append(avisos);
     }
     tr.append(progresso);
@@ -372,7 +456,7 @@ async function carregarMetas() {
   });
   return true;
 }
-function mostrarAvisoMeta(texto, erro = false) { $("#meta-aviso").textContent = texto; $("#meta-aviso").className = `aviso ${erro ? "erro" : "ok"}`; }
+function mostrarAvisoMeta(texto, erro = false) { $("#meta-aviso").textContent = texto; $("#meta-aviso").className = `aviso ${erro ? "erro" : "ok"}`; $("#meta-aviso").setAttribute("role", erro ? "alert" : "status"); }
 function cancelarEdicaoMeta() { metaEdicaoId = ""; $("#meta-salvar").textContent = "Criar meta"; $("#meta-cancelar").classList.add("oculto"); }
 $("#meta-cancelar").onclick = cancelarEdicaoMeta;
 $("#metas-filtro-mes").onchange = carregarMetas;
@@ -387,7 +471,15 @@ $("#meta-form").onsubmit = async ev => {
     if (r.status === 401) { mostrarAuth(); return; }
     const data = await r.json();
     if (!r.ok) { mostrarAvisoMeta(data.erro || "Não foi possível salvar a meta.", true); return; }
-    mostrarAvisoMeta(metaEdicaoId ? "Meta atualizada." : "Meta criada."); cancelarEdicaoMeta(); $("#meta-limite").value = ""; $("#metas-filtro-mes").value = payload.mes; await Promise.all([carregarMetas(), carregarAlertasMesAtual()]);
+    const alterando = Boolean(metaEdicaoId);
+    mostrarAvisoMeta(alterando ? "Meta atualizada." : "Meta criada.");
+    cancelarEdicaoMeta(); $("#meta-limite").value = ""; $("#metas-filtro-mes").value = payload.mes;
+    const [carregou] = await Promise.all([carregarMetas(), carregarAlertasMesAtual()]);
+    const atual = metas.find(meta => meta.id === data.id);
+    if (carregou && atual) {
+      mostrarAvisoMeta(`${alterando ? "Meta atualizada." : "Meta criada."} ${descricaoAlerta(atual)}`);
+      if (atual.situacao === "EXCEDIDA") { $("#meta-aviso").classList.add("meta-impacto-excedida"); $("#meta-aviso").setAttribute("role", "alert"); }
+    }
   } catch { mostrarAvisoMeta("Serviço indisponível. Tente novamente.", true); }
   finally { $("#meta-salvar").disabled = false; }
 };
@@ -574,15 +666,7 @@ async function iniciarDados() {
   await Promise.all([carregarResumo(), carregarLista(), carregarAlertasMesAtual()]);
 }
 (async function iniciar() {
-  const link = new URLSearchParams(location.search);
-  const acao = link.get("acao");
-  if ((acao === "verificar" || acao === "recuperar") && link.get("token")) {
-    tokenLink = link.get("token");
-    history.replaceState(null, "", location.pathname);
-    mostrarAuth();
-    modo(acao === "verificar" ? "verificar" : "redefinir");
-    return;
-  }
+  modo("login");
   const r = await fetch(`${API}/auth/me`);
   if (!r.ok) { mostrarAuth(); return; }
   const data = await r.json(); csrf = data.csrf;

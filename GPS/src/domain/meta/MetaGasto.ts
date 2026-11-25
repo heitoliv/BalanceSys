@@ -1,9 +1,9 @@
 import { DomainError } from "../shared/DomainError";
-import { LimiarMeta, ProgressoMeta } from "./ProgressoMeta";
+import { LimiarMeta, ProgressoMeta, SituacaoMeta } from "./ProgressoMeta";
 
 export type DadosMeta = { categoriaId: string; mes: string; limite: number };
 export type MetaView = { id: string; categoriaId: string; categoriaNome: string; mes: string; limite: number; moeda: string; inicio: string; fimExclusivo: string; criadoEm: Date; atualizadoEm: Date };
-export type MetaComProgresso = MetaView & { progresso: ProgressoMeta; alertas: LimiarMeta[] };
+export type MetaComProgresso = MetaView & { progresso: ProgressoMeta; situacao: SituacaoMeta; alertas: LimiarMeta[] };
 export function proximoMes(mes: string): string {
   const [ano, numero] = mes.split("-").map(Number);
   return numero === 12 ? `${ano + 1}-01` : `${ano}-${String(numero + 1).padStart(2, "0")}`;
