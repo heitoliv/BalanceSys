@@ -26,7 +26,7 @@ function erro(res: Response, e: unknown): void {
 
 function limitar(req: Request, res: Response, acao: string): boolean {
   const chaves = [
-    { chave: `${acao}:${req.ip}:${String(req.body?.nickname ?? "").trim().toLowerCase().slice(0, 254)}`, maximo: acao === "recuperar-senha" ? 8 : 5 },
+    { chave: `${acao}:${req.ip}:${String(req.body?.nickname ?? "").trim().toLowerCase().slice(0, 254)}`, maximo: 5 },
     { chave: `${acao}:${req.ip}:total`, maximo: 20 },
   ];
   const agora = Date.now();
@@ -51,29 +51,6 @@ export function criarRotasAuth(auth: AuthService): Router {
     if (!req.is("application/json")) { res.status(415).json({ erro: "Envie JSON." }); return; }
     if (!limitar(req, res, "cadastro")) return;
     try { res.setHeader("Cache-Control", "no-store"); res.status(201).json(await auth.cadastrar(req.body ?? {})); } catch (e) { erro(res, e); }
-  });
-  router.post("/recuperar-senha", async (req, res) => {
-    if (!origemPermitida(req)) { res.status(403).json({ erro: "Origem inválida." }); return; }
-    if (!req.is("application/json")) { res.status(415).json({ erro: "Envie JSON." }); return; }
-    if (!limitar(req, res, "recuperar-senha")) return;
-    try {
-      const resultado = await auth.recuperarSenha(req.body?.nickname, req.body?.codigo, req.body?.senha, req.body?.confirmarSenha);
-      res.setHeader("Cache-Control", "no-store");
-      res.json({ ...resultado, mensagem: "Senha alterada. Guarde o novo código de recuperação e entre novamente." });
-    } catch (e) { erro(res, e); }
-  });
-  router.post("/gerar-codigo-recuperacao", async (req, res) => {
-    if (!origemPermitida(req)) { res.status(403).json({ erro: "Origem inválida." }); return; }
-    if (!req.is("application/json")) { res.status(415).json({ erro: "Envie JSON." }); return; }
-    try {
-      const usuario = await auth.autenticar(tokenDaRequisicao(req));
-      if (!usuario) { res.status(401).json({ erro: "Autenticação necessária." }); return; }
-      if (!auth.verificarCsrf(req.get("x-csrf-token"), usuario.csrfToken)) { res.status(403).json({ erro: "Token CSRF inválido." }); return; }
-      if (!limitar(req, res, `gerar-codigo:${usuario.id}`)) return;
-      const codigoRecuperacao = await auth.gerarCodigoRecuperacao(usuario.id, req.body?.senhaAtual);
-      res.setHeader("Cache-Control", "no-store");
-      res.json({ codigoRecuperacao, mensagem: "Novo código gerado. O anterior não funciona mais." });
-    } catch (e) { erro(res, e); }
   });
   router.post("/login", async (req, res) => {
     if (!origemPermitida(req)) { res.status(403).json({ erro: "Origem inválida." }); return; }

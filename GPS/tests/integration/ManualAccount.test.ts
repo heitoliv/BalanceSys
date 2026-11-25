@@ -43,52 +43,23 @@ integration("PostgreSQL: nickname, troca de senha e reset administrativo isolado
   }
 }, 30000);
 
-integration("PostgreSQL: recuperação por código único, rotação e isolamento", async () => {
+integration("PostgreSQL: cadastro não gera código nem abre recuperação pública", async () => {
   if (!new URL(url!).pathname.slice(1).startsWith("balancesys_test_")) throw new Error("Banco isolado obrigatório");
   const prisma = new PrismaClient({ datasources: { db: { url } } });
   const app = criarApp({ prisma, auth: new AuthService(prisma) } as Container);
-  const a = request.agent(app), b = request.agent(app);
-  const sufixo = randomUUID().slice(0, 8);
-  const nicknameA = `_conta${sufixo}`, nicknameB = `2conta${sufixo}`;
-  const senha = "Senha-A1!";
+  const nickname = `_semcodigo${randomUUID().slice(0, 8)}`;
   try {
-    const cadastroA = await a.post("/api/auth/cadastro").send({ nome: "Alice", nickname: nicknameA, senha, confirmarSenha: senha });
-    const cadastroB = await b.post("/api/auth/cadastro").send({ nome: "Bob", nickname: nicknameB, senha, confirmarSenha: senha });
-    expect([cadastroA.status, cadastroB.status]).toEqual([201, 201]);
-    expect(cadastroA.headers["cache-control"]).toBe("no-store");
-    const codigo = cadastroA.body.codigoRecuperacao;
-    expect(codigo).toMatch(/^[a-f0-9]{64}$/);
-    const armazenado = await prisma.usuario.findUnique({ where: { nicknameBusca: nicknameA } });
-    expect(armazenado?.recuperacaoHash).not.toBe(codigo);
-    const loginA = await a.post("/api/auth/login").send({ nickname: nicknameA.toUpperCase(), senha });
-    const loginB = await b.post("/api/auth/login").send({ nickname: nicknameB, senha });
-    expect([loginA.status, loginB.status]).toEqual([200, 200]);
-    const rota = "/api/auth/recuperar-senha";
-    const body = { nickname: nicknameA, codigo, senha: "NovaSenha1!", confirmarSenha: "NovaSenha1!" };
-    expect((await request(app).post(rota).send({ ...body, codigo: cadastroB.body.codigoRecuperacao })).status).toBe(401);
-    expect((await request(app).post(rota).send({ ...body, nickname: `nunca${sufixo}` })).status).toBe(401);
-    expect((await request(app).post(rota).send({ ...body, confirmarSenha: "diferente" })).status).toBe(422);
-    const recuperacao = await request(app).post(rota).send(body);
-    expect(recuperacao.status).toBe(200);
-    expect(recuperacao.headers["cache-control"]).toBe("no-store");
-    expect(recuperacao.body.codigoRecuperacao).toMatch(/^[a-f0-9]{64}$/);
-    expect(recuperacao.body.codigoRecuperacao).not.toBe(codigo);
-    expect((await a.get("/api/auth/me")).status).toBe(401);
-    expect((await b.get("/api/auth/me")).status).toBe(200);
-    expect((await request(app).post(rota).send(body)).status).toBe(401);
-    expect((await a.post("/api/auth/login").send({ nickname: nicknameA, senha })).status).toBe(401);
-    const novoLogin = await a.post("/api/auth/login").send({ nickname: nicknameA, senha: "NovaSenha1!" });
-    expect(novoLogin.status).toBe(200);
-    expect((await a.post("/api/auth/gerar-codigo-recuperacao").send({ senhaAtual: "NovaSenha1!" })).status).toBe(403);
-    expect((await a.post("/api/auth/gerar-codigo-recuperacao").set("X-CSRF-Token", novoLogin.body.csrf).send({ senhaAtual: "errada" })).status).toBe(401);
-    const gerado = await a.post("/api/auth/gerar-codigo-recuperacao").set("X-CSRF-Token", novoLogin.body.csrf).send({ senhaAtual: "NovaSenha1!" });
-    expect(gerado.status).toBe(200);
-    expect((await request(app).post(rota).send({ ...body, codigo: recuperacao.body.codigoRecuperacao, senha: "OutraSenha1!", confirmarSenha: "OutraSenha1!" })).status).toBe(401);
-    expect((await request(app).post(rota).send({ ...body, codigo: gerado.body.codigoRecuperacao, senha: "OutraSenha1!", confirmarSenha: "OutraSenha1!" })).status).toBe(200);
+    const cadastro = await request(app).post("/api/auth/cadastro").send({ nome: "Pessoa", nickname, senha: "Senha-A1!", confirmarSenha: "Senha-A1!" });
+    expect(cadastro.status).toBe(201);
+    expect(cadastro.body).not.toHaveProperty("codigoRecuperacao");
+    expect(cadastro.headers["set-cookie"]).toBeUndefined();
+    expect((await request(app).post("/api/auth/recuperar-senha").send({ nickname, codigo: "a".repeat(64), senha: "NovaSenha1!" })).status).toBe(404);
+    expect((await request(app).post("/api/auth/gerar-codigo-recuperacao").send({ senhaAtual: "Senha-A1!" })).status).toBe(404);
+    expect((await request(app).post("/api/auth/login").send({ nickname, senha: "NovaSenha1!" })).status).toBe(401);
+    expect((await request(app).post("/api/auth/login").send({ nickname, senha: "Senha-A1!" })).status).toBe(200);
   } finally {
-    const ids = (await prisma.usuario.findMany({ where: { nicknameBusca: { in: [nicknameA, nicknameB] } }, select: { id: true } })).map(u => u.id);
-    await prisma.sessao.deleteMany({ where: { usuarioId: { in: ids } } });
-    await prisma.usuario.deleteMany({ where: { id: { in: ids } } });
+    const user = await prisma.usuario.findUnique({ where: { nicknameBusca: nickname } });
+    if (user) { await prisma.sessao.deleteMany({ where: { usuarioId: user.id } }); await prisma.usuario.delete({ where: { id: user.id } }); }
     await prisma.$disconnect();
   }
 }, 30000);

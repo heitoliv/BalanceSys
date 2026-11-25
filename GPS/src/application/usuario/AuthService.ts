@@ -6,8 +6,6 @@ import { REQUISITOS_SENHA, REQUISITOS_NICKNAME, senhaValida, validarNickname } f
 const scrypt = promisify(scryptCallback);
 const VIDA_SESSAO_MS = 12 * 60 * 60 * 1000;
 const hashToken = (value: string) => createHash("sha256").update(value).digest("hex");
-const novoCodigo = () => randomBytes(32).toString("hex");
-const hashCodigo = (codigo: string) => hashToken(`recuperacao:${codigo}`);
 
 export async function gerarSenhaHash(senha: string): Promise<string> {
   if (!senhaValida(senha)) throw new AuthError(REQUISITOS_SENHA, 422, "senha");
@@ -39,9 +37,8 @@ export class AuthService {
     if (!senhaValida(input.senha)) throw new AuthError(REQUISITOS_SENHA, 422, "senha");
     if (input.confirmarSenha !== input.senha) throw new AuthError("As senhas não coincidem.", 422, "confirmarSenha");
     try {
-      const codigoRecuperacao = novoCodigo();
-      const usuario = await this.prisma.usuario.create({ data: { nome, ...nickname, senhaHash: await gerarSenhaHash(input.senha), recuperacaoHash: hashCodigo(codigoRecuperacao), recuperacaoCriadoEm: new Date() } });
-      return { id: usuario.id, nome: usuario.nome, nickname: usuario.nickname, codigoRecuperacao, mensagem: "Conta criada. Guarde o código de recuperação antes de entrar." };
+      const usuario = await this.prisma.usuario.create({ data: { nome, ...nickname, senhaHash: await gerarSenhaHash(input.senha) } });
+      return { id: usuario.id, nome: usuario.nome, nickname: usuario.nickname, mensagem: "Conta criada. Entre com seu nome de usuário e senha." };
     } catch (error) {
       if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002")
         throw new AuthError("Este nome de usuário já está em uso.", 409, "nickname");
@@ -64,34 +61,6 @@ export class AuthService {
       expiraEm: new Date(Date.now() + VIDA_SESSAO_MS),
     } });
     return { token, csrf, expiraEm: sessao.expiraEm, usuario: { id: usuario.id, nome: usuario.nome, nickname: usuario.nickname } };
-  }
-
-  async gerarCodigoRecuperacao(usuarioId: string, senhaAtual: unknown): Promise<string> {
-    if (typeof senhaAtual !== "string" || !senhaAtual) throw new AuthError("Informe a senha atual.", 422, "senhaAtual");
-    const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
-    if (!usuario || !await this.conferirSenha(senhaAtual, usuario.senhaHash)) throw new AuthError("Senha atual incorreta.", 401, "senhaAtual");
-    const codigo = novoCodigo();
-    await this.prisma.usuario.update({ where: { id: usuarioId }, data: { recuperacaoHash: hashCodigo(codigo), recuperacaoCriadoEm: new Date() } });
-    return codigo;
-  }
-
-  async recuperarSenha(nicknameInput: unknown, codigoInput: unknown, novaSenha: unknown, confirmarSenha: unknown): Promise<{ codigoRecuperacao: string }> {
-    const nickname = validarNickname(nicknameInput);
-    if (!nickname) throw new AuthError(REQUISITOS_NICKNAME, 422, "nickname");
-    if (typeof codigoInput !== "string" || !/^[a-f0-9]{64}$/i.test(codigoInput.trim())) throw new AuthError("Informe um código de recuperação válido.", 422, "codigo");
-    if (!senhaValida(novaSenha)) throw new AuthError(REQUISITOS_SENHA, 422, "senha");
-    if (confirmarSenha !== novaSenha) throw new AuthError("As senhas não coincidem.", 422, "confirmarSenha");
-    const usuario = await this.prisma.usuario.findUnique({ where: { nicknameBusca: nickname.nicknameBusca } });
-    const codigoHash = hashCodigo(codigoInput.trim().toLowerCase());
-    if (!usuario?.recuperacaoHash || usuario.recuperacaoHash !== codigoHash) throw new AuthError("Nome de usuário ou código de recuperação inválido.", 401, "codigo");
-    const senhaHash = await gerarSenhaHash(novaSenha);
-    const proximoCodigo = novoCodigo();
-    await this.prisma.$transaction(async tx => {
-      const resultado = await tx.usuario.updateMany({ where: { id: usuario.id, recuperacaoHash: codigoHash }, data: { senhaHash, recuperacaoHash: hashCodigo(proximoCodigo), recuperacaoCriadoEm: new Date() } });
-      if (resultado.count !== 1) throw new AuthError("Código já utilizado. Use o código mais recente.", 409, "codigo");
-      await tx.sessao.deleteMany({ where: { usuarioId: usuario.id } });
-    });
-    return { codigoRecuperacao: proximoCodigo };
   }
 
   async alterarNickname(usuarioId: string, novoInput: unknown, senhaAtual: unknown): Promise<string> {

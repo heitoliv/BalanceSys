@@ -13,8 +13,6 @@ model Usuario {
   nickname String @unique
   nicknameBusca String @unique
   senhaHash String?
-  recuperacaoHash String? @unique
-  recuperacaoCriadoEm DateTime?
   criadoEm  DateTime    @default(now())
 
   transacoes Transacao[]

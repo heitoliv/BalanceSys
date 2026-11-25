@@ -1,12 +1,12 @@
 # Entrega das imagens ao servidor
 
-O arquivo `balancesys-images-20261125-amd64.tar.gz` contém duas imagens Docker: `localhost/balancesys-api:20261125` (API) e `localhost/balancesys-migrate:20261125` (tarefa Prisma). Não contém PostgreSQL nem dados do banco, segredos, `.env` ou backups. A imagem `postgres:16-alpine` é obtida no servidor pelo Compose. Confira a arquitetura `amd64` antes de usar. O arquivo `balancesys-images-20261125-amd64.tar.gz.sha256` permite conferir a transferência.
+O novo arquivo `balancesys-images-20261125-r2-amd64.tar.gz` substitui o pacote anterior e contém duas imagens Docker: `localhost/balancesys-api:20261125-r2` (API) e `localhost/balancesys-migrate:20261125-r2` (tarefa Prisma). Não contém PostgreSQL nem dados do banco, segredos, `.env` ou backups. A imagem `postgres:16-alpine` é obtida no servidor pelo Compose. Confira a arquitetura `amd64` antes de usar. O arquivo `balancesys-images-20261125-r2-amd64.tar.gz.sha256` permite conferir a transferência.
 
 No servidor com Docker Engine e Compose:
 
 ```bash
-sha256sum -c balancesys-images-20261125-amd64.tar.gz.sha256
-docker load -i balancesys-images-20261125-amd64.tar.gz
+sha256sum -c balancesys-images-20261125-r2-amd64.tar.gz.sha256
+docker load -i balancesys-images-20261125-r2-amd64.tar.gz
 cp release.env.example release.env
 chmod 600 release.env
 ```
@@ -22,6 +22,6 @@ docker compose --env-file release.env -f compose.release.yaml ps
 curl -fsS http://127.0.0.1:3000/health
 ```
 
-O serviço `migrate` executa uma vez após o banco ficar saudável; rode apenas uma tarefa de migração por atualização. A API escuta somente no loopback do host; o professor precisa configurar proxy reverso com domínio e TLS antes de acesso público. `NODE_ENV=production` marca o cookie como Secure, então login público exige HTTPS. Faça backup e teste restauração do PostgreSQL antes de atualizar imagem ou schema. O volume do banco persiste entre reinicializações: não execute `down -v` para parar o serviço. Monitore healthcheck e logs sem registrar senhas ou códigos de recuperação. A limitação de tentativas ainda é por processo; para múltiplas réplicas, implemente controle compartilhado antes de abrir a aplicação amplamente.
+O serviço `migrate` executa uma vez após o banco ficar saudável; rode apenas uma tarefa de migração por atualização. A API escuta somente no loopback do host; o professor precisa configurar proxy reverso com domínio e TLS antes de acesso público. `NODE_ENV=production` marca o cookie como Secure, então login público exige HTTPS. Faça backup e teste restauração do PostgreSQL antes de atualizar imagem ou schema. O volume do banco persiste entre reinicializações: não execute `down -v` para parar o serviço. Monitore healthcheck e logs sem registrar senhas ou dados sensíveis. A limitação de tentativas ainda é por processo; para múltiplas réplicas, implemente controle compartilhado antes de abrir a aplicação amplamente.
 
-Pessoas cadastradas recebem código de recuperação único no cadastro. Contas criadas antes desse recurso precisam gerar o primeiro código em Minha conta enquanto ainda conseguem autenticar. Perder senha e código simultaneamente não permite recuperação autônoma segura.
+A troca de senha pela própria pessoa exige sessão e senha atual. Senha esquecida requer redefinição administrativa após conferir a identidade fora da aplicação; não existe recuperação por código ou e-mail.
