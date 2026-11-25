@@ -21,7 +21,7 @@ export interface NovaTransacaoProps {
   valor: number;
   descricao: string;
   data: Date;
-  prioridade: PrioridadeGasto;
+  prioridade?: PrioridadeGasto | null;
   usuarioId: string;
   categoriaId: string;
 }
@@ -37,7 +37,7 @@ export class Transacao {
   readonly valor: number;
   readonly descricao: string;
   readonly data: Date;
-  readonly prioridade: PrioridadeGasto;
+  readonly prioridade: PrioridadeGasto | null;
   readonly usuarioId: string;
   readonly categoriaId: string;
   readonly criadoEm: Date;
@@ -48,7 +48,7 @@ export class Transacao {
     this.valor = props.valor;
     this.descricao = props.descricao;
     this.data = props.data;
-    this.prioridade = props.prioridade;
+    this.prioridade = props.tipo === TipoTransacao.RECEITA ? null : props.prioridade ?? null;
     this.usuarioId = props.usuarioId;
     this.categoriaId = props.categoriaId;
     this.criadoEm = props.criadoEm;
@@ -64,7 +64,7 @@ export class Transacao {
     Transacao.validarValor(props.valor); // E2
     Transacao.validarDescricao(props.descricao);
     Transacao.validarData(props.data);
-    Transacao.validarPrioridade(props.prioridade); // RN01
+    if (props.tipo === TipoTransacao.DESPESA) Transacao.validarPrioridade(props.prioridade); // RN01
     Transacao.validarVinculo(props.usuarioId, "usuário"); // RN04
     Transacao.validarVinculo(props.categoriaId, "categoria");
 
@@ -107,6 +107,9 @@ export class Transacao {
     if (valor <= 0) {
       throw new DomainError("O valor da transação deve ser maior que zero.");
     }
+    if (!Number.isSafeInteger(Math.round(valor * 100)) || Math.abs(valor * 100 - Math.round(valor * 100)) > 1e-7) {
+      throw new DomainError("O valor deve ter no máximo duas casas decimais.");
+    }
   }
 
   private static validarDescricao(descricao: unknown): void {
@@ -121,7 +124,7 @@ export class Transacao {
     }
   }
 
-  /** RN01 — toda transação carrega uma prioridade de gasto. */
+  /** RN01 — somente despesas recebem prioridade de gasto. */
   private static validarPrioridade(prioridade: unknown): void {
     if (!isPrioridadeGasto(prioridade)) {
       throw new DomainError(

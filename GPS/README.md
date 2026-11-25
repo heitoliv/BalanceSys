@@ -1,150 +1,69 @@
-# BalanceSys — Incremento 1
+# BalanceSys GPS
 
-Sistema de controle financeiro pessoal. Este incremento entrega o **registro de receitas e despesas com persistência real em banco de dados** e o **saldo consolidado** — o fluxo funcional mínimo previsto para a Entrega 2 (Execução e Controle).
+Monólito modular em TypeScript, Express, Prisma 5.22 e PostgreSQL. As camadas existentes separam domínio, casos de uso, persistência e HTTP/interface. A autenticação atual usa **nome de usuário (nickname) e senha**. Não há e-mail no cadastro nem entrega de links. Verificação de endereço eletrônico fica como melhoria futura.
 
-> **Para o grupo:** este código segue fielmente a arquitetura em camadas documentada em Projeto de Sistemas (*CDP → CGT → CGD → CIU*). A estrutura de pastas abaixo já está preparada para receber os PBIs seguintes (metas, categorização automática, trava RN06) sem reorganização.
+## Preparação local no NixOS
 
----
+Node.js 22, npm 10 e PostgreSQL 16 são as versões usadas na verificação. `package.json` e `package-lock.json` fixam as dependências. No NixOS, `scripts/nix-run.sh` disponibiliza Node, PostgreSQL e OpenSSL 3, além de apontar Prisma 5.22 aos engines Debian da mesma versão. `GPS/.env` deve existir, ser privado e conter `DATABASE_URL`, `POSTGRES_PASSWORD`, `PORT`, `NODE_ENV=development` e `TRUST_PROXY=0`. O exemplo `.env.example` contém somente valores de demonstração; configure os segredos no arquivo local. Não use banco de produção nos comandos seguintes.
 
-## O que está implementado (Incremento 1)
-
-| Caso de uso | Descrição | Onde |
-|---|---|---|
-| **UC03** | Registrar transação (receita/despesa), com valor, data, descrição, categoria e prioridade (RN01) | `AplControlarTransacao.registrarTransacao` |
-| **UC07** | Listar e filtrar histórico (por tipo, categoria, período) | `AplControlarTransacao.listarTransacoes` |
-| **UC08 / RF02** | Saldo consolidado (receitas − despesas) | `CalculadoraSaldo` + `obterResumo` |
-| **UC04** (parcial) | Excluir transação | `AplControlarTransacao.removerTransacao` |
-| Regra **E2** | Bloqueio de valor nulo, negativo ou inválido | `Transacao.criar` |
-| Regra **RN01** | Prioridade de gasto na transação | enum `PrioridadeGasto` |
-| Regra **RN04** | Transação pertence a um usuário | vínculo obrigatório + filtro por `usuarioId` |
-
-**Fora do escopo deste incremento** (incrementos seguintes): login/cadastro (PBI-01/02), categorização automática (PBI-06), metas e alertas (PBI-08/09/10), trava RN06 (PBI-07), gráficos (PBI-13).
-
----
-
-## Decisão de projeto: SQLite + Prisma
-
-O Documento de Projeto previa PostgreSQL. Para este incremento, usa-se **SQLite via Prisma**: é um banco relacional real (ACID, SQL, migrações), mas armazenado num único arquivo (`prisma/dev.db`), **sem servidor a configurar** — roda em qualquer máquina do grupo com um `npm install`.
-
-A migração para PostgreSQL, quando o grupo quiser, exige apenas:
-1. trocar `provider = "sqlite"` por `provider = "postgresql"` em `prisma/schema.prisma`;
-2. apontar `DATABASE_URL` para o servidor Postgres;
-3. rodar `npm run prisma:migrate`.
-
-Nenhum outro arquivo muda — essa é a vantagem de isolar a persistência atrás da porta `TransacaoRepository`.
-
----
-
-## Como rodar
-
-Pré-requisito: **Node.js 18+**.
+A partir da raiz do clone:
 
 ```bash
-# 1. Instalar dependências
-npm install
+python3 GPS/scripts/local_env.py check
+python3 GPS/scripts/local_env.py exec bash GPS/scripts/nix-run.sh npm ci
+python3 GPS/scripts/local_env.py exec bash GPS/scripts/nix-run.sh bash scripts/local-postgres.sh start
+python3 GPS/scripts/local_env.py exec bash GPS/scripts/nix-run.sh npm run prisma:generate
+python3 GPS/scripts/local_env.py exec bash GPS/scripts/nix-run.sh npm run prisma:migrate
+python3 GPS/scripts/local_env.py exec bash GPS/scripts/nix-run.sh npm run build
+python3 GPS/scripts/local_env.py exec bash GPS/scripts/nix-run.sh npm start
+```
 
-# 2. Criar o arquivo .env (copie do exemplo)
-cp .env.example .env
+Deixe o último terminal aberto e visite `http://localhost:3000/` quando `PORT=3000`. Em outro terminal, `curl -fsS http://localhost:3000/health` deve devolver `{"status":"ok"}`. `Ctrl+C` encerra a API; `python3 GPS/scripts/local_env.py exec bash GPS/scripts/nix-run.sh bash scripts/local-postgres.sh stop` encerra o banco sem apagar dados. Para testes automatizados, use exclusivamente `TEST_DATABASE_URL` com nome `balancesys_test_*` e migrações aplicadas. Veja [MANUAL_TEST.md](MANUAL_TEST.md).
 
-# 3. Criar o banco e as tabelas
+## Contas e recuperação por código
+
+O nickname é obrigatório, único sem distinção de maiúsculas e minúsculas, tem 3–30 caracteres, começa com letra ASCII, número ou `_` e aceita letras sem acentos, números, `.`, `_` e `-`. `admin`, `root`, `support`, `suporte` e `balancesys` são reservados. O cadastro não cria sessão. A senha nova exige 6–20 caracteres, maiúscula, minúscula, número e caractere especial. A composição curta é decisão de produto; senhas mais longas e passphrases merecem revisão futura. Duplicidade é informada no cadastro, o que permite enumeração limitada de nicknames; o limite por IP/nickname ainda é por processo.
+
+`POST /api/auth/cadastro` recebe `nome`, `nickname`, `senha` e `confirmarSenha`. A resposta traz um código aleatório de recuperação de 256 bits, mostrado uma única vez na interface; somente seu hash SHA-256 com separação de domínio fica no PostgreSQL. Guarde o código fora do navegador. O cadastro não abre sessão. `POST /api/auth/login` recebe nickname e senha. Na tela inicial, **Esqueci minha senha** solicita nickname, código e nova senha com confirmação; `POST /api/auth/recuperar-senha` consome o código uma vez, troca a senha, revoga todas as sessões e devolve um código substituto para guardar. Código inválido ou usado não redefine a senha. A resposta com código usa `Cache-Control: no-store` e o código não entra nos logs da aplicação.
+
+Em **Minha conta**, `POST /api/auth/gerar-codigo-recuperacao` exige sessão, CSRF e senha atual para criar ou substituir o código. Isso permite que contas anteriores à migração recebam um código enquanto ainda conseguem entrar. Uma conta antiga que já perdeu senha e nunca gerou código não tem prova suficiente para recuperação autônoma; nesse caso, continua necessário o procedimento administrativo legado `account:reset` após verificação externa de identidade. O mesmo vale para quem perdeu simultaneamente senha e código. Não existe recuperação segura baseada apenas no nickname. O limite de tentativas de recuperação é por IP/nickname, em memória por processo; antes de expor múltiplas réplicas ao público, substitua por controle compartilhado. `/logout`, `/alterar-senha`, `/alterar-nickname` e `GET /me` seguem exigindo sessão; mutações protegidas exigem CSRF. O cookie é HttpOnly, SameSite=Lax e Secure em produção. O token de sessão fica como hash no banco e expira em 12 horas.
+
+A migração `20261125010000_recovery_code` acrescenta o hash e a data de emissão opcionais, sem modificar senhas ou dados financeiros existentes. A migração `20261125000000_nickname_accounts` atribui nicknames provisórios `usuario_1`, `usuario_2` etc. por ordem de ID, mantém IDs, senhas, sessões, transações e metas, e remove colunas e tokens de e-mail. Antes de aplicá-la a um banco existente, gere `pg_dump -Fc` e um mapa privado de antigo identificador para nickname. O operador deve comunicar o nickname provisório após conferir a identidade do titular. A pessoa pode alterá-lo em Minha conta informando a senha atual. O backup local desta revisão e o mapa ficam em `GPS/.local/backup/`, fora do Git. Não publique o mapa.
+
+## Transferência de SQLite existente
+
+Não foi encontrado `*.db` neste clone. O histórico SQLite foi preservado em `prisma/sqlite_migrations/` e a linha PostgreSQL começou em `prisma/migrations/`. O Prisma 5.22.0 exige que `migration_lock.toml` e SQL sejam do mesmo provider; trocar apenas o provider e executar `migrate deploy` não migra dados SQLite.
+
+Antes de usar um arquivo pessoal, feche a aplicação SQLite e mantenha o original intacto. A exportação usa a API de backup do SQLite para obter um snapshot consistente, cria `*.backup.db`, registra SHA-256, contagens e soma por tipo, e recusa valores com fração de centavo. A conversão de `Float` para `Decimal(18,2)` não arredonda silenciosamente valores ou datas com precisão superior a milissegundos.
+
+```bash
+python3 scripts/export_sqlite.py prisma/dev.db prisma/backup/data.export.json
+# Crie um PostgreSQL novo e vazio; aplique a migração antes da importação.
 npm run prisma:migrate
-
-# 4. (Opcional) Popular com dados de exemplo
-npm run seed
-
-# 5. Subir o sistema
-npm run dev
+npx ts-node scripts/import_sqlite.ts prisma/backup/data.export.json
 ```
 
-Acesse **http://localhost:3000**.
+A importação preserva IDs, relações, categorias e datas, e pode ser repetida. Ela recusa linhas não relacionadas já existentes no destino; divergências durante a verificação anulam a transação PostgreSQL. A exportação não sobrescreve um backup anterior: escolha outro nome de saída para um novo snapshot. A saída contém `divergence: []` quando contagens, valores agregados, IDs, vínculos e datas conferem. **Importe antes de iniciar a API ou executar seed**: o seed criaria categorias com novos IDs. Mantenha o backup SQLite até a conferência e o aceite; para retorno, pare a API PostgreSQL, restaure o banco SQLite original em uma cópia e volte ao commit/configuração anterior. Não há sincronização reversa automática.
 
-### Rodar os testes
+No Compose, o banco não está exposto. Para importar antes de subir a API:
 
 ```bash
-npm test
+docker compose up -d db
+docker compose run --rm migrate
+docker compose run --rm -v ./prisma/backup:/app/prisma/backup:ro migrate npx ts-node scripts/import_sqlite.ts prisma/backup/data.export.json
+docker compose up -d api
 ```
 
-20 testes cobrindo as regras de domínio, o cálculo de saldo e a gerência de aplicação.
+Usuários importados não possuíam senha no schema anterior. A conta fica preservada com `senhaHash = NULL`; não consegue entrar até receber credencial por procedimento administrativo. O operador pode atribuir a primeira senha com `claim_imported_user.ts` e arquivo privado 0600. A importação atribui `usuario_1`, `usuario_2` etc. em ordem de ID; informe o nickname ao titular somente após conferir sua identidade fora da aplicação. Contas importadas sem senha exigem atribuição administrativa de uma senha inicial.
 
----
+## Docker Compose local
 
-## Arquitetura de pastas
+`compose.yaml` possui `db` PostgreSQL com volume, tarefa única `migrate` e API dependente dela. O banco não publica porta. Dentro do Compose, `DATABASE_URL` usa `db:5432`; a API executada no host usa `127.0.0.1:55432`. O Compose é desenvolvimento e não constitui deploy pronto. Com Docker Engine disponível, no GPS use `docker compose config --quiet` para validar a configuração e `docker compose up --build -d`; consulte `docker compose ps` e `/health`. Não use `down -v` se houver dados.
 
-A estrutura espelha as camadas da arquitetura. **Cada nova funcionalidade entra na camada correspondente, sem tocar nas demais.**
+## Entrega de imagens
 
-```
-balancesys/
-├── prisma/
-│   ├── schema.prisma        # cgd — modelo de dados (Usuario, Categoria, Transacao)
-│   ├── seed.ts              # dados de exemplo
-│   └── dev.db               # banco SQLite (gerado; não versionar)
-│
-├── src/
-│   ├── domain/              # ░░ CDP — Camada de Domínio do Problema ░░
-│   │   ├── shared/
-│   │   │   ├── enums.ts              # TipoTransacao, PrioridadeGasto (RN01)
-│   │   │   └── DomainError.ts        # erro de regra de negócio
-│   │   └── transacao/
-│   │       ├── Transacao.ts          # entidade central (ADR-01) + validações (E2, RN01)
-│   │       ├── TransacaoRepository.ts# PORTA de persistência (contrato)
-│   │       └── CalculadoraSaldo.ts   # serviço de saldo (PBI-11)
-│   │
-│   ├── application/         # ░░ CGT — Camada de Gerência de Tarefas ░░
-│   │   └── transacao/
-│   │       ├── AplControlarTransacao.ts  # orquestra UC03, UC04, UC07, UC08
-│   │       └── dtos.ts                    # objetos de transferência
-│   │
-│   ├── infrastructure/     # ░░ CGD — Camada de Gerência de Dados ░░
-│   │   ├── prisma/client.ts                      # conexão (singleton)
-│   │   └── persistence/
-│   │       ├── PrismaTransacaoRepository.ts       # DAO concreto (implementa a porta)
-│   │       └── Bootstrap.ts                       # usuário padrão + categorias
-│   │
-│   ├── interface/          # ░░ CIU — Camada de Interface com o Usuário ░░
-│   │   └── http/
-│   │       ├── CtrlTransacao.ts   # cci — controladora (rotas HTTP)
-│   │       └── server.ts          # montagem do Express
-│   │
-│   ├── config/
-│   │   └── container.ts    # composition root (injeção de dependências)
-│   └── main.ts             # ponto de entrada
-│
-├── public/                 # cih — interface humana (página servida)
-│   ├── index.html
-│   └── app.js
-│
-└── tests/                  # testes das três camadas (PBI-14)
-    ├── domain/
-    ├── application/
-    └── InMemoryTransacaoRepository.ts  # duplo de teste da porta
-```
+A entrega ao servidor está descrita em [DEPLOY_HANDOFF.md](DEPLOY_HANDOFF.md). O arquivo Docker compactado e seu SHA-256 ficam em `GPS/.local/exports/` (ignorados pelo Git). Inclui imagens separadas de API e migração; o Compose de servidor está em `compose.release.yaml`. As imagens foram construídas e executadas com Podman rootless; Docker Engine não está disponível nesta máquina.
 
-### Onde adicionar os próximos PBIs
+## Deploy futuro
 
-| PBI | Onde criar | O que reaproveitar |
-|---|---|---|
-| **PBI-01/02** — Login/cadastro | nova pasta `domain/usuario/` + `application/usuario/AplPrincipal.ts` + rotas em `interface/http/` | o modelo `Usuario` já existe no schema |
-| **PBI-06** — Categorização automática | `domain/categoria/Categoria.ts` com `classificarAutomaticamente()` | campo `palavrasChave` a adicionar na `Categoria` |
-| **PBI-07** — Trava RN06 | método `validarPrazoEdicao()` em `Transacao.ts` | a entidade já centraliza as regras |
-| **PBI-08/09/10** — Metas e alertas | `domain/meta/` + `application/meta/AplGerenciarMeta.ts` | `CalculadoraSaldo` como referência de serviço |
-| **PBI-13** — Gráfico | `interface/` (front) consumindo `/api/resumo` | o endpoint de resumo já existe |
-
----
-
-## API (endpoints do Incremento 1)
-
-| Método | Rota | Função |
-|---|---|---|
-| `POST` | `/api/transacoes` | Registrar transação (UC03) |
-| `GET` | `/api/transacoes?tipo=&categoriaId=&de=&ate=` | Listar/filtrar (UC07) |
-| `GET` | `/api/resumo?de=&ate=` | Saldo consolidado (UC08) |
-| `DELETE` | `/api/transacoes/:id` | Excluir (UC04) |
-| `GET` | `/api/categorias` | Listar categorias |
-
----
-
-## Verificação (evidência de teste — produto da Entrega 2)
-
-- **20 testes automatizados** (`npm test`) passando: regras de domínio, cálculo de saldo, gerência de aplicação.
-- **Teste de ponta a ponta**: registro via API persiste no banco e o saldo recalcula corretamente (receitas R$ 6.500 − despesas R$ 1.769,90 = saldo R$ 4.730,10).
-- **Persistência real confirmada**: os dados sobrevivem ao reinício do processo (lidos diretamente do arquivo `dev.db`).
+Publique a imagem após build, testes e revisão. Configure domínio e TLS em proxy reverso, mantendo a API e PostgreSQL em rede privada; ajuste `TRUST_PROXY=1` somente se o proxy for confiável e defina `APP_BASE_URL` como origem HTTPS pública. Injete segredos fora do repositório e use senha codificada na URL. Execute `prisma migrate deploy` como tarefa única antes de liberar tráfego, preserve backup `pg_dump` testado com `pg_restore`, registre métricas/logs sem dados sensíveis, monitore `/health`, e planeje rollback de imagem e de banco com restauração testada. Uma migração de schema pode não ser reversível; mantenha backup antes de atualizar. O Compose local não significa prontidão para produção.

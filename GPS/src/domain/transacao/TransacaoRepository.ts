@@ -13,6 +13,7 @@ export interface FiltroPeriodo {
   usuarioId: string;
   de?: Date;
   ate?: Date;
+  antesDe?: Date;
   tipo?: TipoTransacao;
   categoriaId?: string;
 }
@@ -22,4 +23,6 @@ export interface TransacaoRepository {
   listar(filtro: FiltroPeriodo): Promise<Transacao[]>;
   buscarPorId(id: string, usuarioId: string): Promise<Transacao | null>;
   remover(id: string, usuarioId: string): Promise<void>;
+  removerNoPrazo(id: string, usuarioId: string, criadoDepoisDe: Date): Promise<boolean>;
+  atualizarNoPrazo(id: string, usuarioId: string, criadoDepoisDe: Date, transacao: Transacao): Promise<Transacao | null>;
 }

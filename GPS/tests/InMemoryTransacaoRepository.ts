@@ -22,6 +22,7 @@ export class InMemoryTransacaoRepository implements TransacaoRepository {
       .filter((t) => (f.categoriaId ? t.categoriaId === f.categoriaId : true))
       .filter((t) => (f.de ? t.data >= f.de : true))
       .filter((t) => (f.ate ? t.data <= f.ate : true))
+      .filter((t) => (f.antesDe ? t.data < f.antesDe : true))
       .sort((a, b) => b.data.getTime() - a.data.getTime());
   }
 
@@ -33,5 +34,17 @@ export class InMemoryTransacaoRepository implements TransacaoRepository {
     this.dados = this.dados.filter(
       (t) => !(t.id === id && t.usuarioId === usuarioId)
     );
+  }
+  async removerNoPrazo(id: string, usuarioId: string, criadoDepoisDe: Date): Promise<boolean> {
+    const row = this.dados.find(t => t.id === id && t.usuarioId === usuarioId && t.criadoEm >= criadoDepoisDe);
+    if (!row) return false;
+    await this.remover(id, usuarioId);
+    return true;
+  }
+  async atualizarNoPrazo(id: string, usuarioId: string, criadoDepoisDe: Date, transacao: Transacao): Promise<Transacao | null> {
+    const index = this.dados.findIndex(t => t.id === id && t.usuarioId === usuarioId && t.criadoEm >= criadoDepoisDe);
+    if (index < 0) return null;
+    this.dados[index] = Transacao.reconstituir({ ...transacao, id, criadoEm: this.dados[index].criadoEm });
+    return this.dados[index];
   }
 }

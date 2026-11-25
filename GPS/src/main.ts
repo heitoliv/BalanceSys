@@ -1,5 +1,5 @@
 // ============================================================================
-// Ponto de entrada da aplicação BalanceSys — Incremento 1
+// Ponto de entrada da aplicação BalanceSys.
 // ============================================================================
 
 import { criarContainer } from "./config/container";
@@ -13,14 +13,17 @@ async function iniciar(): Promise<void> {
 
   const app = criarApp(container);
 
-  app.listen(PORTA, () => {
+  const server = app.listen(PORTA, () => {
     // eslint-disable-next-line no-console
-    console.log(`BalanceSys rodando em http://localhost:${PORTA}`);
+    console.log(`BalanceSys escutando na porta ${PORTA}`);
   });
+  const encerrar = () => server.close(async () => { await container.prisma.$disconnect(); process.exit(0); });
+  process.once("SIGTERM", encerrar);
+  process.once("SIGINT", encerrar);
 }
 
 iniciar().catch((e) => {
   // eslint-disable-next-line no-console
-  console.error("Falha ao iniciar o BalanceSys:", e);
+  console.error("Falha ao iniciar o BalanceSys:", e instanceof Error ? e.name : "erro");
   process.exit(1);
 });

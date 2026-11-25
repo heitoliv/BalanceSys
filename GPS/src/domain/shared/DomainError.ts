@@ -9,6 +9,6 @@ export class DomainError extends Error {
     super(message);
     this.name = "DomainError";
     // Mantém a cadeia de protótipos correta ao transpilar para ES5/ES2020.
-    Object.setPrototypeOf(this, DomainError.prototype);
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
